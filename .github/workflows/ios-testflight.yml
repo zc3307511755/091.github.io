@@ -1,0 +1,234 @@
+name: iOS TestFlight
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_name:
+        description: "Marketing version, for example 0.1.0"
+        required: false
+        default: ""
+      build_number:
+        description: "Build number. Defaults to the GitHub run number."
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+env:
+  PROJECT_DIR: couple_app
+  FLUTTER_CHANNEL: stable
+
+jobs:
+  testflight:
+    name: Build and Upload to TestFlight
+    runs-on: macos-latest
+    timeout-minutes: 60
+
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      IOS_BUNDLE_ID: ${{ secrets.IOS_BUNDLE_ID }}
+      IOS_CERTIFICATE_P12_BASE64: ${{ secrets.IOS_CERTIFICATE_P12_BASE64 }}
+      IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+      IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+      APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+      APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+      APP_STORE_CONNECT_API_KEY_P8_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8_BASE64 }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check required secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(
+            SUPABASE_URL
+            SUPABASE_PUBLISHABLE_KEY
+            APPLE_TEAM_ID
+            IOS_BUNDLE_ID
+            IOS_CERTIFICATE_P12_BASE64
+            IOS_CERTIFICATE_PASSWORD
+            IOS_PROVISIONING_PROFILE_BASE64
+            APP_STORE_CONNECT_API_KEY_ID
+            APP_STORE_CONNECT_API_ISSUER_ID
+            APP_STORE_CONNECT_API_KEY_P8_BASE64
+          )
+          missing=()
+          for name in "${required[@]}"; do
+            value="${!name-}"
+            if [ -z "$value" ]; then
+              missing+=("$name")
+            fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            printf 'Missing required GitHub secrets:\n'
+            printf ' - %s\n' "${missing[@]}"
+            exit 1
+          fi
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: ${{ env.FLUTTER_CHANNEL }}
+          cache: true
+
+      - name: Install Flutter dependencies
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: flutter pub get
+
+      - name: Analyze
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: flutter analyze
+
+      - name: Test
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: flutter test
+
+      - name: Install iOS pods
+        working-directory: ${{ env.PROJECT_DIR }}/ios
+        run: pod install
+
+      - name: Set build metadata
+        working-directory: ${{ env.PROJECT_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          build_name="${{ inputs.build_name }}"
+          build_number="${{ inputs.build_number }}"
+          if [ -z "$build_name" ]; then
+            build_name="$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d+ -f1)"
+          fi
+          if [ -z "$build_number" ]; then
+            build_number="${{ github.run_number }}"
+          fi
+          echo "BUILD_NAME=$build_name" >> "$GITHUB_ENV"
+          echo "BUILD_NUMBER=$build_number" >> "$GITHUB_ENV"
+
+      - name: Import Apple signing assets
+        working-directory: ${{ env.PROJECT_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          keychain_password="$(openssl rand -base64 32)"
+          keychain_path="$RUNNER_TEMP/app-signing.keychain-db"
+          certificate_path="$RUNNER_TEMP/apple_distribution.p12"
+          profile_path="$RUNNER_TEMP/app_store.mobileprovision"
+          profile_plist="$RUNNER_TEMP/app_store_profile.plist"
+
+          echo "$IOS_CERTIFICATE_P12_BASE64" | base64 -D > "$certificate_path"
+          echo "$IOS_PROVISIONING_PROFILE_BASE64" | base64 -D > "$profile_path"
+
+          security create-keychain -p "$keychain_password" "$keychain_path"
+          security set-keychain-settings -lut 21600 "$keychain_path"
+          security unlock-keychain -p "$keychain_password" "$keychain_path"
+          security import "$certificate_path" -P "$IOS_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$keychain_path"
+          security list-keychain -d user -s "$keychain_path"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$keychain_password" "$keychain_path"
+
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          security cms -D -i "$profile_path" > "$profile_plist"
+          profile_uuid="$(/usr/libexec/PlistBuddy -c 'Print UUID' "$profile_plist")"
+          profile_name="$(/usr/libexec/PlistBuddy -c 'Print Name' "$profile_plist")"
+          cp "$profile_path" "$HOME/Library/MobileDevice/Provisioning Profiles/$profile_uuid.mobileprovision"
+
+          echo "IOS_PROFILE_NAME=$profile_name" >> "$GITHUB_ENV"
+          echo "SIGNING_KEYCHAIN=$keychain_path" >> "$GITHUB_ENV"
+
+      - name: Configure Xcode project signing
+        working-directory: ${{ env.PROJECT_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ruby <<'RUBY'
+          path = "ios/Runner.xcodeproj/project.pbxproj"
+          bundle_id = ENV.fetch("IOS_BUNDLE_ID")
+          team_id = ENV.fetch("APPLE_TEAM_ID")
+          profile_name = ENV.fetch("IOS_PROFILE_NAME")
+          text = File.read(path)
+          text.gsub!("PRODUCT_BUNDLE_IDENTIFIER = com.couple.coupleApp;", "PRODUCT_BUNDLE_IDENTIFIER = #{bundle_id};")
+          text.gsub!("CODE_SIGN_STYLE = Automatic;", "CODE_SIGN_STYLE = Manual;\n\t\t\t\tDEVELOPMENT_TEAM = #{team_id};\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = \"#{profile_name}\";")
+          File.write(path, text)
+          RUBY
+
+      - name: Create export options
+        working-directory: ${{ env.PROJECT_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > ios/ExportOptions.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store</string>
+            <key>teamID</key>
+            <string>${APPLE_TEAM_ID}</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>${IOS_BUNDLE_ID}</key>
+              <string>${IOS_PROFILE_NAME}</string>
+            </dict>
+            <key>stripSwiftSymbols</key>
+            <true/>
+            <key>compileBitcode</key>
+            <false/>
+          </dict>
+          </plist>
+          EOF
+
+      - name: Build IPA
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          flutter build ipa --release \
+            --build-name "$BUILD_NAME" \
+            --build-number "$BUILD_NUMBER" \
+            --export-options-plist=ios/ExportOptions.plist \
+            --dart-define="SUPABASE_URL=$SUPABASE_URL" \
+            --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY"
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa
+          path: ${{ env.PROJECT_DIR }}/build/ios/ipa/*.ipa
+          if-no-files-found: error
+
+      - name: Upload to TestFlight
+        working-directory: ${{ env.PROJECT_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gem install fastlane --no-document
+          mkdir -p "$RUNNER_TEMP/app_store_connect"
+          key_path="$RUNNER_TEMP/app_store_connect/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8"
+          api_key_json="$RUNNER_TEMP/app_store_connect/api_key.json"
+          echo "$APP_STORE_CONNECT_API_KEY_P8_BASE64" | base64 -D > "$key_path"
+          cat > "$api_key_json" <<EOF
+          {
+            "key_id": "${APP_STORE_CONNECT_API_KEY_ID}",
+            "issuer_id": "${APP_STORE_CONNECT_API_ISSUER_ID}",
+            "key_filepath": "${key_path}",
+            "duration": 1200,
+            "in_house": false
+          }
+          EOF
+          ipa_path="$(ls build/ios/ipa/*.ipa | head -n 1)"
+          fastlane pilot upload \
+            --api_key_path "$api_key_json" \
+            --ipa "$ipa_path" \
+            --skip_waiting_for_build_processing true
+
+      - name: Clean up signing keychain
+        if: always()
+        shell: bash
+        run: |
+          if [ -n "${SIGNING_KEYCHAIN:-}" ]; then
+            security delete-keychain "$SIGNING_KEYCHAIN" || true
+          fi

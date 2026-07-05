@@ -1,0 +1,105 @@
+name: Web PWA Pages
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_href:
+        description: "Base href. Leave empty to use /repository-name/."
+        required: false
+        default: ""
+  push:
+    branches:
+      - main
+    paths:
+      - "couple_app/**"
+      - ".github/workflows/web-pwa-pages.yml"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build Web PWA
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      PROJECT_DIR: couple_app
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check required secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_URL:-}" ]; then
+            echo "Missing required secret: SUPABASE_URL"
+            exit 1
+          fi
+          if [ -z "${SUPABASE_PUBLISHABLE_KEY:-}" ]; then
+            echo "Missing required secret: SUPABASE_PUBLISHABLE_KEY"
+            exit 1
+          fi
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: flutter pub get
+
+      - name: Analyze
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: flutter analyze
+
+      - name: Test
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: flutter test
+
+      - name: Build Web
+        working-directory: ${{ env.PROJECT_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          base_href="${{ inputs.base_href }}"
+          if [ -z "$base_href" ]; then
+            base_href="/${GITHUB_REPOSITORY#*/}/"
+          fi
+          flutter build web --release \
+            --base-href "$base_href" \
+            --dart-define="SUPABASE_URL=$SUPABASE_URL" \
+            --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY"
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ env.PROJECT_DIR }}/build/web
+
+  deploy:
+    name: Deploy Web PWA
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
