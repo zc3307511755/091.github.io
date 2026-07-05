@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       base_href:
-        description: "Base href. Leave empty to use /repository-name/."
+        description: "Base href. Leave empty to auto-detect GitHub Pages path."
         required: false
         default: ""
   push:
@@ -76,8 +76,14 @@ jobs:
           set -euo pipefail
           base_href="${{ inputs.base_href }}"
           if [ -z "$base_href" ]; then
-            base_href="/${GITHUB_REPOSITORY#*/}/"
+            repo_name="${GITHUB_REPOSITORY#*/}"
+            if [[ "$repo_name" == *.github.io ]]; then
+              base_href="/"
+            else
+              base_href="/$repo_name/"
+            fi
           fi
+          echo "Using base href: $base_href"
           flutter build web --release \
             --base-href "$base_href" \
             --dart-define="SUPABASE_URL=$SUPABASE_URL" \

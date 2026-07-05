@@ -61,14 +61,16 @@ This repository includes `.github/workflows/web-pwa-pages.yml`.
 5. Run the `Web PWA Pages` workflow manually, or push to `main`.
 6. Open the Pages URL on iPhone Safari and add it to the home screen.
 
-For the default GitHub Pages project URL, the workflow uses:
+For a normal project Pages URL, the workflow uses:
 
 ```text
 /<repository-name>/
 ```
 
-as the Flutter `base-href`. If you deploy to a custom domain root, run the
-workflow manually and set `base_href` to `/`.
+as the Flutter `base-href`. If the repository name ends with `.github.io`, the
+workflow automatically uses `/` because that repository is served from the
+domain root. If you deploy to a custom domain root, run the workflow manually
+and set `base_href` to `/`.
 
 ## Notes
 

@@ -57,13 +57,20 @@ Open:
 Actions -> Web PWA Pages -> Run workflow
 ```
 
-Leave `base_href` empty for the default GitHub Pages project URL:
+Leave `base_href` empty. The workflow detects the correct path:
 
 ```text
 https://<your-user>.github.io/<your-repo>/
 ```
 
-Set `base_href` to `/` only when deploying to a custom domain root.
+For a repository named `<your-user>.github.io`, the site is served from the root:
+
+```text
+https://<your-user>.github.io/
+```
+
+and the workflow automatically uses `/`. Set `base_href` manually only for a
+custom deployment path.
 
 ## 5. Install on iPhone
 
