@@ -63,14 +63,22 @@ Leave `base_href` empty. The workflow detects the correct path:
 https://<your-user>.github.io/<your-repo>/
 ```
 
-For a repository named `<your-user>.github.io`, the site is served from the root:
+For a repository named exactly `<your-user>.github.io` under the same account,
+the site is served from the root:
 
 ```text
 https://<your-user>.github.io/
 ```
 
-and the workflow automatically uses `/`. Set `base_href` manually only for a
-custom deployment path.
+and the workflow automatically uses `/`. A repository can still contain
+`.github.io` in its name and be a project Pages site. For example,
+`zc3307511755/091.github.io` is served at:
+
+```text
+https://zc3307511755.github.io/091.github.io/
+```
+
+Set `base_href` manually only for a custom deployment path.
 
 ## 5. Install on iPhone
 

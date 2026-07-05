@@ -67,10 +67,16 @@ For a normal project Pages URL, the workflow uses:
 /<repository-name>/
 ```
 
-as the Flutter `base-href`. If the repository name ends with `.github.io`, the
-workflow automatically uses `/` because that repository is served from the
-domain root. If you deploy to a custom domain root, run the workflow manually
-and set `base_href` to `/`.
+as the Flutter `base-href`. The workflow uses `/` only when the repository is
+the account root Pages repository, for example `<your-user>/<your-user>.github.io`.
+For this repository, `zc3307511755/091.github.io`, the correct Pages path is:
+
+```text
+/091.github.io/
+```
+
+If you deploy to a custom domain root, run the workflow manually and set
+`base_href` to `/`.
 
 ## Notes
 

@@ -76,8 +76,9 @@ jobs:
           set -euo pipefail
           base_href="${{ inputs.base_href }}"
           if [ -z "$base_href" ]; then
+            owner="${GITHUB_REPOSITORY%%/*}"
             repo_name="${GITHUB_REPOSITORY#*/}"
-            if [[ "$repo_name" == *.github.io ]]; then
+            if [ "$repo_name" = "$owner.github.io" ]; then
               base_href="/"
             else
               base_href="/$repo_name/"
