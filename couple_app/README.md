@@ -58,6 +58,10 @@ arguments:
 .\scripts\build_android_debug.ps1
 ```
 
+The app includes a basic Android update check under `我的 -> 安卓版更新`.
+It reads `web/app_update.json` after that file is deployed to GitHub Pages.
+See `docs/android_updates.md` before publishing a new APK.
+
 ## iOS build
 
 iOS cannot be built on Windows directly. Use one of these paths:

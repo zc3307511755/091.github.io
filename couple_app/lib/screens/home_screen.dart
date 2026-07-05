@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'anniversary_screen.dart';
 import 'coupon_screen.dart';
+import 'dashboard_screen.dart';
 import 'journal_screen.dart';
 import 'meal_screen.dart';
 import 'profile_screen.dart';
@@ -22,23 +23,25 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       body: IndexedStack(
         index: _index,
-        children: const [
-          TodoScreen(),
-          CouponScreen(),
-          MealScreen(),
-          JournalScreen(),
-          AnniversaryScreen(),
-          ProfileScreen(),
+        children: [
+          DashboardScreen(onOpenTab: _selectTab),
+          const TodoScreen(),
+          const CouponScreen(),
+          const MealScreen(),
+          const JournalScreen(),
+          const AnniversaryScreen(),
+          const ProfileScreen(),
         ],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
-        onDestinationSelected: (value) {
-          setState(() {
-            _index = value;
-          });
-        },
+        onDestinationSelected: _selectTab,
         destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.dashboard_outlined),
+            selectedIcon: Icon(Icons.dashboard),
+            label: '首页',
+          ),
           NavigationDestination(
             icon: Icon(Icons.checklist),
             selectedIcon: Icon(Icons.checklist_rtl),
@@ -72,5 +75,11 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
+  }
+
+  void _selectTab(int value) {
+    setState(() {
+      _index = value;
+    });
   }
 }

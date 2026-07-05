@@ -1,0 +1,11 @@
+{
+  "latest_version": "0.1.0",
+  "latest_build_number": 1,
+  "minimum_build_number": 1,
+  "download_url": "",
+  "published_at": "2026-07-05",
+  "release_notes": [
+    "当前版本为初始测试版。",
+    "后续发布新版 APK 后，这里会显示更新内容和下载入口。"
+  ]
+}
