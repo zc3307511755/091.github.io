@@ -84,3 +84,4 @@ custom deployment path.
 - Do not commit `.env`.
 - The PWA uses the same Supabase backend as Android.
 - If the page opens but the app stays blank, check that `base_href` matches the deployed path.
+- Pushing changes under `couple_app/` triggers the `Web PWA Pages` workflow.
