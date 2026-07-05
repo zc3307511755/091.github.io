@@ -16,11 +16,14 @@ class CouponService {
   }
 
   Future<List<CouponRequest>> loadCouponRequests(String coupleId) async {
-    final data = await SupabaseService.client
-        .from('coupon_requests')
-        .select()
-        .eq('couple_id', coupleId)
-        .order('created_at', ascending: false);
+    final data = await _ignoreMissingSchema(
+      () => SupabaseService.client
+          .from('coupon_requests')
+          .select()
+          .eq('couple_id', coupleId)
+          .order('created_at', ascending: false),
+      fallback: const [],
+    );
 
     return data.map((item) => CouponRequest.fromMap(item)).toList();
   }
@@ -66,13 +69,26 @@ class CouponService {
     String? description,
     DateTime? expiresAt,
   }) async {
-    await SupabaseService.client.from('coupons').insert({
+    final payload = <String, dynamic>{
       'couple_id': coupleId,
       'receiver_id': receiverId,
       'title': title,
       'description': description,
-      'expires_at': expiresAt == null ? null : _dateOnly(expiresAt),
-    });
+    };
+    if (expiresAt != null) {
+      payload['expires_at'] = _dateOnly(expiresAt);
+    }
+
+    try {
+      await SupabaseService.client.from('coupons').insert(payload);
+    } on PostgrestException catch (error) {
+      if (expiresAt != null && _isMissingSchema(error)) {
+        throw const CouponFeatureUnavailable(
+          '当前数据库还没有情侣券有效期字段。请先在 Supabase 运行新版 supabase_schema.sql。',
+        );
+      }
+      rethrow;
+    }
   }
 
   Future<void> requestCoupon({
@@ -82,13 +98,22 @@ class CouponService {
     String? description,
     DateTime? expiresAt,
   }) async {
-    await SupabaseService.client.from('coupon_requests').insert({
-      'couple_id': coupleId,
-      'approver_id': approverId,
-      'title': title,
-      'description': description,
-      'expires_at': expiresAt == null ? null : _dateOnly(expiresAt),
-    });
+    try {
+      await SupabaseService.client.from('coupon_requests').insert({
+        'couple_id': coupleId,
+        'approver_id': approverId,
+        'title': title,
+        'description': description,
+        'expires_at': expiresAt == null ? null : _dateOnly(expiresAt),
+      });
+    } on PostgrestException catch (error) {
+      if (_isMissingSchema(error)) {
+        throw const CouponFeatureUnavailable(
+          '当前数据库还没有请求券功能。请先在 Supabase 运行新版 supabase_schema.sql。',
+        );
+      }
+      rethrow;
+    }
   }
 
   Future<void> respondToRequest({
@@ -96,14 +121,23 @@ class CouponService {
     required bool approve,
     String? responseNote,
   }) async {
-    await SupabaseService.client.rpc(
-      'respond_coupon_request',
-      params: {
-        'request_id_input': requestId,
-        'approve_input': approve,
-        'response_note_input': responseNote,
-      },
-    );
+    try {
+      await SupabaseService.client.rpc(
+        'respond_coupon_request',
+        params: {
+          'request_id_input': requestId,
+          'approve_input': approve,
+          'response_note_input': responseNote,
+        },
+      );
+    } on PostgrestException catch (error) {
+      if (_isMissingSchema(error)) {
+        throw const CouponFeatureUnavailable(
+          '当前数据库还没有请求券处理功能。请先在 Supabase 运行新版 supabase_schema.sql。',
+        );
+      }
+      rethrow;
+    }
   }
 
   Future<void> useCoupon(String couponId) async {
@@ -118,4 +152,38 @@ class CouponService {
         .toIso8601String()
         .substring(0, 10);
   }
+
+  Future<T> _ignoreMissingSchema<T>(
+    Future<T> Function() action, {
+    required T fallback,
+  }) async {
+    try {
+      return await action();
+    } on PostgrestException catch (error) {
+      if (_isMissingSchema(error)) {
+        return fallback;
+      }
+      rethrow;
+    }
+  }
+
+  bool _isMissingSchema(PostgrestException error) {
+    final message = error.message.toLowerCase();
+    return error.code == 'PGRST202' ||
+        error.code == 'PGRST204' ||
+        error.code == 'PGRST205' ||
+        message.contains('coupon_requests') ||
+        message.contains('expires_at') ||
+        message.contains('source_request_id') ||
+        message.contains('schema cache');
+  }
+}
+
+class CouponFeatureUnavailable implements Exception {
+  const CouponFeatureUnavailable(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
 }

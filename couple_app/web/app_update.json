@@ -1,12 +1,12 @@
 {
-  "latest_version": "0.2.0",
-  "latest_build_number": 2,
+  "latest_version": "0.2.1",
+  "latest_build_number": 3,
   "minimum_build_number": 1,
-  "download_url": "https://raw.githubusercontent.com/zc3307511755/091.github.io/main/android-downloads/womenlia-0.2.0-build2.apk",
+  "download_url": "https://zc3307511755.github.io/091.github.io/downloads/",
   "published_at": "2026-07-05",
   "release_notes": [
-    "软件名和图标更新为“我们俩”。",
-    "首页支持设置和修改在一起日期。",
-    "情侣券支持有效期、请求券和更精美的卡券样式。"
+    "修复安卓版线上下载更新地址。",
+    "恢复旧数据库下的基础情侣券发送和使用。",
+    "请求券和有效期功能会在数据库未升级时给出明确提示。"
   ]
 }
