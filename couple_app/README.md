@@ -113,6 +113,8 @@ The repository also includes a GitHub Pages workflow:
 ```
 
 See `docs/github_pages_release.md` for the release checklist.
+See `docs/troubleshooting.md` for known build, deployment, Android update, and
+Supabase schema troubleshooting notes.
 
 After native platform folders are generated, check image permissions before
 testing meal photo upload:

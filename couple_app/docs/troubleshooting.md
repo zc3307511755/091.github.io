@@ -1,0 +1,211 @@
+# Troubleshooting Notes
+
+These notes collect the concrete issues already hit in this project and the
+working fixes. Keep them updated when a non-obvious problem is solved.
+
+## Flutter Analyze Fails in Chinese Path
+
+Symptom:
+
+```text
+FormatException: Unterminated string
+analysis server exited with code 255
+```
+
+Cause:
+
+- The project path contains Chinese characters:
+  `C:\Users\朱超\Documents\软件开发.情侣版\couple_app`
+- Dart analysis server can fail before reporting normal diagnostics.
+
+Fix:
+
+1. Sync `couple_app` to `C:\src\couple_app_build`.
+2. Use ASCII cache paths:
+   `PUB_CACHE=C:\src\pub-cache`,
+   `GRADLE_USER_HOME=C:\src\gradle-home`.
+3. Run Flutter commands from `C:\src\couple_app_build`.
+
+## Android Build Stalls on CMake
+
+Symptom:
+
+```text
+Preparing "Install CMake 3.22.1 v.3.22.1".
+```
+
+The SDK folder only contains `.installer`, or SDK `.temp` contains an
+incomplete CMake zip.
+
+Fix:
+
+1. Download `https://dl.google.com/android/repository/cmake-3.22.1-windows.zip`.
+2. Extract it to:
+   `%LOCALAPPDATA%\Android\Sdk\cmake\3.22.1`
+3. Rebuild from the ASCII build copy.
+
+## Android Update Detects New Version but Cannot Download
+
+Checklist:
+
+1. Open:
+   `https://zc3307511755.github.io/091.github.io/app_update.json`
+2. Confirm `download_url` is not empty.
+3. Open the `download_url` on the same phone network.
+4. Check each APK with HTTP HEAD/GET.
+
+Lessons learned:
+
+- A GitHub raw APK URL can pass desktop checks but still be unreliable on
+  mobile networks.
+- A single large universal APK can be unnecessarily fragile.
+- The current stable approach is a GitHub Pages download page at:
+  `couple_app/web/downloads/index.html`
+- The page links split APKs:
+  - `womenlia-*-arm64-v8a.apk`
+  - `womenlia-*-armeabi-v7a.apk`
+  - `womenlia-*-x86_64.apk`
+
+Verification commands:
+
+```powershell
+$json = Invoke-RestMethod `
+  -Uri "https://zc3307511755.github.io/091.github.io/app_update.json?check=$(Get-Date -UFormat %s)"
+$json.latest_version
+$json.latest_build_number
+$json.download_url
+
+Invoke-WebRequest `
+  -Uri "https://zc3307511755.github.io/091.github.io/downloads/" `
+  -UseBasicParsing `
+  -TimeoutSec 20
+
+Invoke-WebRequest `
+  -Uri "https://zc3307511755.github.io/091.github.io/downloads/womenlia-0.2.1-build3-arm64-v8a.apk" `
+  -Method Head `
+  -UseBasicParsing `
+  -TimeoutSec 30
+```
+
+## Android Install Fails After Download
+
+Check these first:
+
+- Package name must remain `com.couple.couple_app`.
+- New versionCode must be higher than the installed APK.
+- Signing certificate must match the installed APK.
+- Most real phones should use `arm64-v8a`; older phones may need
+  `armeabi-v7a`.
+
+Helpful commands:
+
+```powershell
+& "$env:LOCALAPPDATA\Android\Sdk\build-tools\37.0.0\aapt.exe" `
+  dump badging "path\to\app.apk"
+
+& "$env:LOCALAPPDATA\Android\Sdk\build-tools\37.0.0\apksigner.bat" `
+  verify --print-certs "path\to\app.apk"
+```
+
+## Coupon Features Fail
+
+Symptoms:
+
+- Cannot send coupon.
+- Cannot request coupon.
+- Cannot use coupon.
+- Coupon page shows schema/RPC/PostgREST errors.
+
+Root cause already seen:
+
+- The remote Supabase schema was still old.
+- Missing items:
+  - `coupons.expires_at`
+  - `coupons.source_request_id`
+  - `coupon_requests`
+  - `respond_coupon_request`
+
+Diagnosis:
+
+```powershell
+$envFile = "couple_app\.env"
+$vars = @{}
+foreach ($line in Get-Content -LiteralPath $envFile) {
+  if ($line -match "^\s*#" -or $line -notmatch "=") { continue }
+  $name, $value = $line.Split("=", 2)
+  $vars[$name] = $value.Trim()
+}
+
+$url = $vars["SUPABASE_URL"]
+$key = $vars["SUPABASE_PUBLISHABLE_KEY"]
+$headers = @{
+  apikey = $key
+  Authorization = "Bearer $key"
+  "Accept-Profile" = "public"
+  "Content-Profile" = "public"
+}
+
+Invoke-WebRequest `
+  -Uri "${url}/rest/v1/coupons?select=id,expires_at,source_request_id&limit=1" `
+  -Headers $headers `
+  -UseBasicParsing
+
+Invoke-WebRequest `
+  -Uri "${url}/rest/v1/coupon_requests?select=id,status&limit=1" `
+  -Headers $headers `
+  -UseBasicParsing
+```
+
+Fix:
+
+1. Open Supabase SQL Editor.
+2. Run `couple_app/supabase_schema.sql` completely.
+3. Confirm Realtime includes `coupon_requests`.
+4. Retest with two paired accounts.
+
+Current client fallback:
+
+- If the old schema is still present, long-lived basic coupon issue/use should
+  keep working.
+- Request coupons and coupon expiry still require the upgraded schema.
+
+## PowerShell Command Pitfalls
+
+Avoid piping directly after a multiline block:
+
+```powershell
+# Fragile
+foreach ($x in $items) {
+  $x
+} | Format-Table
+
+# Safer
+$rows = foreach ($x in $items) {
+  $x
+}
+$rows | Format-Table
+```
+
+Use `${variable}` in URLs when text follows the variable:
+
+```powershell
+"${SupabaseUrl}/rest/v1/${table}?select=*&limit=1"
+```
+
+Prefer `Invoke-RestMethod` plus `ConvertTo-Json` for JSON request bodies.
+
+## GitHub Actions API Rate Limit
+
+Symptom:
+
+```text
+API rate limit exceeded
+```
+
+Fix:
+
+- Prefer direct deployed URL checks for Pages.
+- Use cache-busting query strings:
+  `?check=<timestamp>`.
+- Only use the GitHub Actions API when authenticated or when workflow details
+  are essential.
