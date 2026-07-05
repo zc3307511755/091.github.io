@@ -1,6 +1,6 @@
-# Couple App
+# 我们俩
 
-Private realtime Flutter app for couples.
+两个人的日常、纪念、互动和小约定。
 
 ## Setup
 
@@ -135,10 +135,14 @@ The current source covers:
 
 1. Create a new Supabase project.
 2. Open SQL Editor and run `supabase_schema.sql` completely.
+   For existing projects, rerun `supabase_schema.sql` before using coupon
+   expiry or coupon requests. The update adds `coupon_requests`, coupon expiry
+   fields, and the `respond_coupon_request` RPC.
 3. In Authentication settings, enable email/password signups.
 4. In Storage, confirm the `meals` bucket exists after the SQL script runs.
 5. In Realtime, confirm these tables are enabled:
-   `todos`, `coupons`, `journals`, `anniversaries`, `meal_entries`, `meal_plans`.
+   `todos`, `coupons`, `coupon_requests`, `journals`, `anniversaries`,
+   `meal_entries`, `meal_plans`.
 6. Start the app with `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`.
 7. Register two test accounts.
 8. Use one account to create an invite code and the other to join it.

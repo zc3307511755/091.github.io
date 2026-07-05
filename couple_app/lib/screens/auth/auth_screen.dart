@@ -50,7 +50,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      _isRegistering ? '创建你的情侣空间' : '回到你们的小空间',
+                      _isRegistering ? '创建我们俩的小空间' : '回到你们的小空间',
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 32),

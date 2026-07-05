@@ -32,13 +32,18 @@ class DashboardScreen extends StatelessWidget {
     final meals = context.watch<MealProvider>();
 
     final openTodos = todos.items.where((item) => !item.isDone).toList();
-    final unusedCoupons =
-        coupons.items.where((coupon) => coupon.isUnused).length;
+    final unusedCoupons = coupons.items.where((coupon) => coupon.canUse).length;
     final nextAnniversary =
         anniversaries.items.isEmpty ? null : anniversaries.items.first;
     final latestJournal = journals.items.isEmpty ? null : journals.items.first;
     final todayPlanCount = meals.plans.where((plan) => !plan.isDone).length;
     final todayPhotoCount = meals.entries.length;
+    final relationshipAnniversary = _firstAnniversaryOfType(
+      anniversaries.items,
+      'together',
+    );
+    final relationshipStart =
+        relationshipAnniversary?.eventDate ?? couple?.pairedAt;
 
     return Scaffold(
       appBar: AppBar(
@@ -59,7 +64,11 @@ class DashboardScreen extends StatelessWidget {
             children: [
               _HeroSummary(
                 nickname: auth.profile?.nickname,
-                pairedAt: couple?.pairedAt,
+                startDate: relationshipStart,
+                onEditStartDate: () => _editRelationshipStartDate(
+                  context,
+                  existing: relationshipAnniversary,
+                ),
               ),
               const SizedBox(height: 16),
               _QuickActions(onOpenTab: onOpenTab),
@@ -93,6 +102,70 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
+  Anniversary? _firstAnniversaryOfType(
+    List<Anniversary> items,
+    String type,
+  ) {
+    for (final item in items) {
+      if (item.type == type) {
+        return item;
+      }
+    }
+    return null;
+  }
+
+  Future<void> _editRelationshipStartDate(
+    BuildContext context, {
+    Anniversary? existing,
+  }) async {
+    final couple = context.read<CoupleProvider>().current;
+    if (couple == null) {
+      return;
+    }
+
+    final now = DateTime.now();
+    final initialDate = existing?.eventDate ?? couple.pairedAt ?? now;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime(
+        initialDate.year,
+        initialDate.month,
+        initialDate.day,
+      ),
+      firstDate: DateTime(1970),
+      lastDate: DateTime(now.year, now.month, now.day),
+    );
+
+    if (picked == null || !context.mounted) {
+      return;
+    }
+
+    final provider = context.read<AnniversaryProvider>();
+    if (existing == null) {
+      await provider.addAnniversary(
+        coupleId: couple.id,
+        title: '我们在一起',
+        eventDate: picked,
+        type: 'together',
+        repeatYearly: true,
+      );
+    } else {
+      await provider.updateAnniversary(
+        anniversary: existing,
+        title: existing.title.trim().isEmpty ? '我们在一起' : existing.title,
+        eventDate: picked,
+        type: 'together',
+        repeatYearly: true,
+      );
+    }
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('在一起日期已更新')),
+      );
+    }
+  }
+
   Future<void> _refresh(BuildContext context) async {
     final couple = context.read<CoupleProvider>().current;
     if (couple == null) {
@@ -112,16 +185,18 @@ class DashboardScreen extends StatelessWidget {
 class _HeroSummary extends StatelessWidget {
   const _HeroSummary({
     required this.nickname,
-    required this.pairedAt,
+    required this.startDate,
+    required this.onEditStartDate,
   });
 
   final String? nickname;
-  final DateTime? pairedAt;
+  final DateTime? startDate;
+  final VoidCallback onEditStartDate;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final days = _daysTogether(pairedAt);
+    final days = _daysTogether(startDate);
     final greeting = _greeting();
     final name = nickname?.trim().isNotEmpty == true ? nickname!.trim() : '今天';
 
@@ -144,16 +219,36 @@ class _HeroSummary extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              days == null ? '情侣空间已经准备好了' : '这是你们在一起的第 $days 天',
+              days == null ? '我们俩已经准备好了' : '这是你们在一起的第 $days 天',
               style: theme.textTheme.headlineSmall?.copyWith(
                 color: theme.colorScheme.onPrimaryContainer,
                 fontWeight: FontWeight.w800,
               ),
             ),
             const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    startDate == null
+                        ? '设置你们真正开始的那一天'
+                        : '开始于 ${DateFormat('yyyy-MM-dd').format(startDate!)}',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onPrimaryContainer,
+                    ),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: onEditStartDate,
+                  icon: const Icon(Icons.edit_calendar_outlined),
+                  label: Text(startDate == null ? '设置' : '修改'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
             Text(
               _todayLabel(),
-              style: theme.textTheme.bodyMedium?.copyWith(
+              style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onPrimaryContainer,
               ),
             ),

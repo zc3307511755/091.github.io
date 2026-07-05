@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Couple App</string>
+	<string>我们俩</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -15,7 +15,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>couple_app</string>
+	<string>我们俩</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -27,11 +27,11 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Allow Couple App to take meal photos.</string>
+	<string>允许我们俩拍摄餐食照片。</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Allow Couple App to choose meal photos.</string>
+	<string>允许我们俩选择餐食照片。</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Allow Couple App to save meal photos when needed.</string>
+	<string>允许我们俩在需要时保存餐食照片。</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

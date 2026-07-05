@@ -90,11 +90,48 @@ create table if not exists public.coupons (
   title text not null check (length(trim(title)) > 0),
   description text,
   status text not null default 'unused' check (status in ('unused', 'used', 'cancelled')),
+  expires_at date,
+  source_request_id uuid,
   used_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   check (issuer_id <> receiver_id)
 );
+
+create table if not exists public.coupon_requests (
+  id uuid primary key default gen_random_uuid(),
+  couple_id uuid not null references public.couples(id) on delete cascade,
+  requester_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  approver_id uuid not null references auth.users(id) on delete cascade,
+  title text not null check (length(trim(title)) > 0),
+  description text,
+  expires_at date,
+  status text not null default 'pending'
+    check (status in ('pending', 'approved', 'rejected', 'cancelled')),
+  response_note text,
+  coupon_id uuid references public.coupons(id) on delete set null,
+  decided_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  check (requester_id <> approver_id)
+);
+
+alter table public.coupons
+  add column if not exists expires_at date;
+
+alter table public.coupons
+  add column if not exists source_request_id uuid;
+
+do $$
+begin
+  alter table public.coupons
+    add constraint coupons_source_request_fk
+    foreign key (source_request_id)
+    references public.coupon_requests(id)
+    on delete set null;
+exception
+  when duplicate_object then null;
+end $$;
 
 create table if not exists public.journals (
   id uuid primary key default gen_random_uuid(),
@@ -167,6 +204,14 @@ create index if not exists coupons_couple_created_idx
   on public.coupons(couple_id, created_at desc);
 create index if not exists coupons_receiver_status_idx
   on public.coupons(receiver_id, status);
+create index if not exists coupons_expires_idx
+  on public.coupons(couple_id, expires_at);
+create index if not exists coupon_requests_couple_created_idx
+  on public.coupon_requests(couple_id, created_at desc);
+create index if not exists coupon_requests_approver_status_idx
+  on public.coupon_requests(approver_id, status);
+create index if not exists coupon_requests_requester_status_idx
+  on public.coupon_requests(requester_id, status);
 create index if not exists journals_couple_date_idx
   on public.journals(couple_id, entry_date desc, created_at desc);
 create index if not exists anniversaries_couple_date_idx
@@ -441,12 +486,106 @@ begin
     raise exception 'coupon is not unused';
   end if;
 
+  if target.expires_at is not null and target.expires_at < current_date then
+    raise exception 'coupon is expired';
+  end if;
+
   update public.coupons c
   set status = 'used',
       used_at = now(),
       updated_at = now()
   where c.id = target.id
   returning * into target;
+
+  return target;
+end;
+$$;
+
+create or replace function public.respond_coupon_request(
+  request_id_input uuid,
+  approve_input boolean,
+  response_note_input text default null
+)
+returns public.coupon_requests
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  current_user_id uuid := auth.uid();
+  target public.coupon_requests%rowtype;
+  new_coupon_id uuid;
+begin
+  if current_user_id is null then
+    raise exception 'not authenticated';
+  end if;
+
+  select *
+  into target
+  from public.coupon_requests r
+  where r.id = request_id_input
+  for update;
+
+  if not found then
+    raise exception 'coupon request not found';
+  end if;
+
+  if target.approver_id <> current_user_id then
+    raise exception 'only the approver can respond';
+  end if;
+
+  if not public.is_couple_member(target.couple_id) then
+    raise exception 'not allowed';
+  end if;
+
+  if target.status <> 'pending' then
+    raise exception 'coupon request is not pending';
+  end if;
+
+  if approve_input
+     and target.expires_at is not null
+     and target.expires_at < current_date then
+    raise exception 'coupon request has expired';
+  end if;
+
+  if approve_input then
+    insert into public.coupons (
+      couple_id,
+      issuer_id,
+      receiver_id,
+      title,
+      description,
+      expires_at,
+      source_request_id
+    )
+    values (
+      target.couple_id,
+      current_user_id,
+      target.requester_id,
+      target.title,
+      target.description,
+      target.expires_at,
+      target.id
+    )
+    returning id into new_coupon_id;
+
+    update public.coupon_requests r
+    set status = 'approved',
+        response_note = nullif(trim(response_note_input), ''),
+        coupon_id = new_coupon_id,
+        decided_at = now(),
+        updated_at = now()
+    where r.id = target.id
+    returning * into target;
+  else
+    update public.coupon_requests r
+    set status = 'rejected',
+        response_note = nullif(trim(response_note_input), ''),
+        decided_at = now(),
+        updated_at = now()
+    where r.id = target.id
+    returning * into target;
+  end if;
 
   return target;
 end;
@@ -481,6 +620,11 @@ create trigger coupons_set_updated_at
   before update on public.coupons
   for each row execute function public.set_updated_at();
 
+drop trigger if exists coupon_requests_set_updated_at on public.coupon_requests;
+create trigger coupon_requests_set_updated_at
+  before update on public.coupon_requests
+  for each row execute function public.set_updated_at();
+
 drop trigger if exists journals_set_updated_at on public.journals;
 create trigger journals_set_updated_at
   before update on public.journals
@@ -511,6 +655,11 @@ create trigger coupons_prevent_identity_update
   before update on public.coupons
   for each row execute function public.prevent_column_updates('couple_id', 'issuer_id', 'receiver_id');
 
+drop trigger if exists coupon_requests_prevent_identity_update on public.coupon_requests;
+create trigger coupon_requests_prevent_identity_update
+  before update on public.coupon_requests
+  for each row execute function public.prevent_column_updates('couple_id', 'requester_id', 'approver_id');
+
 drop trigger if exists journals_prevent_identity_update on public.journals;
 create trigger journals_prevent_identity_update
   before update on public.journals
@@ -539,6 +688,7 @@ alter table public.profiles enable row level security;
 alter table public.couples enable row level security;
 alter table public.todos enable row level security;
 alter table public.coupons enable row level security;
+alter table public.coupon_requests enable row level security;
 alter table public.journals enable row level security;
 alter table public.anniversaries enable row level security;
 alter table public.meal_entries enable row level security;
@@ -618,7 +768,29 @@ with check (
   and issuer_id = auth.uid()
   and public.is_couple_partner(couple_id, receiver_id)
   and status = 'unused'
+  and source_request_id is null
   and used_at is null
+  and (expires_at is null or expires_at >= current_date)
+);
+
+drop policy if exists "coupon_requests_select_couple" on public.coupon_requests;
+create policy "coupon_requests_select_couple"
+on public.coupon_requests for select
+to authenticated
+using (public.is_couple_member(couple_id));
+
+drop policy if exists "coupon_requests_insert_to_partner" on public.coupon_requests;
+create policy "coupon_requests_insert_to_partner"
+on public.coupon_requests for insert
+to authenticated
+with check (
+  public.is_couple_member(couple_id)
+  and requester_id = auth.uid()
+  and public.is_couple_partner(couple_id, approver_id)
+  and status = 'pending'
+  and coupon_id is null
+  and decided_at is null
+  and (expires_at is null or expires_at >= current_date)
 );
 
 drop policy if exists "journals_select_couple" on public.journals;
@@ -793,6 +965,7 @@ using (
 
 alter table public.todos replica identity full;
 alter table public.coupons replica identity full;
+alter table public.coupon_requests replica identity full;
 alter table public.journals replica identity full;
 alter table public.anniversaries replica identity full;
 alter table public.meal_entries replica identity full;
@@ -808,6 +981,13 @@ end $$;
 do $$
 begin
   alter publication supabase_realtime add table public.coupons;
+exception
+  when duplicate_object or undefined_object then null;
+end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.coupon_requests;
 exception
   when duplicate_object or undefined_object then null;
 end $$;
@@ -859,6 +1039,7 @@ revoke execute on function public.can_manage_own_meal_object(text) from public;
 revoke execute on function public.create_couple_invite() from public;
 revoke execute on function public.bind_couple(text) from public;
 revoke execute on function public.use_coupon(uuid) from public;
+revoke execute on function public.respond_coupon_request(uuid, boolean, text) from public;
 
 grant execute on function public.is_couple_member(uuid) to authenticated;
 grant execute on function public.is_couple_partner(uuid, uuid) to authenticated;
@@ -869,3 +1050,4 @@ grant execute on function public.can_manage_own_meal_object(text) to authenticat
 grant execute on function public.create_couple_invite() to authenticated;
 grant execute on function public.bind_couple(text) to authenticated;
 grant execute on function public.use_coupon(uuid) to authenticated;
+grant execute on function public.respond_coupon_request(uuid, boolean, text) to authenticated;

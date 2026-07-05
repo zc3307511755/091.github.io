@@ -19,14 +19,27 @@ class CoupleApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '情侣空间',
+      title: '我们俩',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFE85D75),
+          seedColor: const Color(0xFFF17A9C),
           brightness: Brightness.light,
         ),
-        scaffoldBackgroundColor: const Color(0xFFFFFBFB),
+        scaffoldBackgroundColor: const Color(0xFFFFF7FA),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFFFFF7FA),
+          foregroundColor: Color(0xFF4B3440),
+          centerTitle: true,
+        ),
+        cardTheme: CardThemeData(
+          color: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+            side: const BorderSide(color: Color(0xFFFFD6E4)),
+          ),
+        ),
         useMaterial3: true,
       ),
       home:

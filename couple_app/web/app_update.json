@@ -1,11 +1,12 @@
 {
-  "latest_version": "0.1.0",
-  "latest_build_number": 1,
+  "latest_version": "0.2.0",
+  "latest_build_number": 2,
   "minimum_build_number": 1,
   "download_url": "",
   "published_at": "2026-07-05",
   "release_notes": [
-    "当前版本为初始测试版。",
-    "后续发布新版 APK 后，这里会显示更新内容和下载入口。"
+    "软件名和图标更新为“我们俩”。",
+    "首页支持设置和修改在一起日期。",
+    "情侣券支持有效期、请求券和更精美的卡券样式。"
   ]
 }

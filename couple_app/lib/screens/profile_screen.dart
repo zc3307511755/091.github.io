@@ -44,7 +44,7 @@ class ProfileScreen extends StatelessWidget {
                 children: [
                   ListTile(
                     leading: const Icon(Icons.favorite_border),
-                    title: const Text('情侣空间'),
+                    title: const Text('我们俩'),
                     subtitle: Text(
                         couple == null ? '未配对' : '已配对，关系 ID: ${couple.id}'),
                   ),

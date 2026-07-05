@@ -1,11 +1,11 @@
 {
-    "name": "情侣空间",
-    "short_name": "情侣空间",
+    "name": "我们俩",
+    "short_name": "我们俩",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#FFFBFB",
-    "theme_color": "#E85D75",
-    "description": "Private realtime app for couples.",
+    "background_color": "#FFF7FA",
+    "theme_color": "#F17A9C",
+    "description": "两个人的日常小空间。",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
