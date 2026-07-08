@@ -44,6 +44,7 @@ Read this file before making changes.
   - `app_update.json` reports the expected version/build.
   - `/downloads/` returns HTTP 200.
   - each APK returns HTTP 200 and `application/vnd.android.package-archive`.
+- `latest_build_number` must match the Android APK `versionCode` reported by `aapt dump badging`, not the small pubspec build suffix. For example, `version: 0.2.2+4` built as Android `versionCode='2004'`, so update metadata must use `2004`.
 - Keep the Android signing key stable. Current release builds intentionally use the debug signing config, matching earlier debug APK installs.
 
 ## Supabase Schema Lessons

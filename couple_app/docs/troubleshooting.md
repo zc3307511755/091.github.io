@@ -53,6 +53,7 @@ Checklist:
 2. Confirm `download_url` is not empty.
 3. Open the `download_url` on the same phone network.
 4. Check each APK with HTTP HEAD/GET.
+5. Confirm `latest_build_number` equals the APK's Android `versionCode`.
 
 Lessons learned:
 
@@ -61,6 +62,9 @@ Lessons learned:
 - A single large universal APK can be unnecessarily fragile.
 - The current stable approach is a GitHub Pages download page at:
   `couple_app/web/downloads/index.html`
+- Flutter/Android can transform a pubspec version such as `0.2.2+4` into
+  Android `versionCode='2004'`. The in-app updater compares against Android's
+  installed `versionCode`, so `app_update.json` must use `2004`, not `4`.
 - The page links split APKs:
   - `womenlia-*-arm64-v8a.apk`
   - `womenlia-*-armeabi-v7a.apk`
@@ -74,6 +78,10 @@ $json = Invoke-RestMethod `
 $json.latest_version
 $json.latest_build_number
 $json.download_url
+
+& "$env:LOCALAPPDATA\Android\Sdk\build-tools\37.0.0\aapt.exe" `
+  dump badging "couple_app\web\downloads\womenlia-0.2.2-build4-arm64-v8a.apk" |
+  Select-String "package:"
 
 Invoke-WebRequest `
   -Uri "https://zc3307511755.github.io/091.github.io/downloads/" `
