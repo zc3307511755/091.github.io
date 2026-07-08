@@ -18,7 +18,8 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
-    final couple = context.watch<CoupleProvider>().current;
+    final coupleProvider = context.watch<CoupleProvider>();
+    final couple = coupleProvider.current;
     final user = auth.user;
     final profile = auth.profile;
 
@@ -54,9 +55,30 @@ class ProfileScreen extends StatelessWidget {
                       title: const Text('邀请码'),
                       subtitle: Text(couple.inviteCode),
                     ),
+                  if (couple != null)
+                    ListTile(
+                      leading: Icon(
+                        Icons.link_off,
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                      title: const Text('解除配对'),
+                      subtitle: const Text('解除后可以重新生成或输入邀请码'),
+                      enabled: !coupleProvider.isLoading,
+                      onTap: coupleProvider.isLoading
+                          ? null
+                          : () => _confirmLeaveCouple(context),
+                    ),
+                  if (coupleProvider.isLoading) const LinearProgressIndicator(),
                 ],
               ),
             ),
+            if (coupleProvider.error != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                coupleProvider.error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
             const SizedBox(height: 16),
             const _UpdateTile(),
             const SizedBox(height: 16),
@@ -93,6 +115,44 @@ class ProfileScreen extends StatelessWidget {
     meals.clear();
     couple.clear();
     await auth.signOut();
+  }
+
+  Future<void> _confirmLeaveCouple(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('解除当前配对？'),
+          content: const Text('解除后双方会回到配对页面，历史数据不会删除，但需要重新配对才能继续共享内容。'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('解除配对'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !context.mounted) {
+      return;
+    }
+
+    try {
+      await context.read<CoupleProvider>().leaveCurrentCouple();
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('已解除配对，可以重新开始。')),
+      );
+    } catch (_) {
+      // The provider exposes the message for the UI.
+    }
   }
 
   String _initial(String? nickname) {

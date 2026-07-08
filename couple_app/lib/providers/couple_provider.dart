@@ -13,9 +13,8 @@ class CoupleProvider extends ChangeNotifier {
   Couple? get current => _current;
   bool get isLoading => _isLoading;
   String? get error => _error;
-  String? get inviteCode => _current?.status == 'pending'
-      ? _current?.inviteCode
-      : null;
+  String? get inviteCode =>
+      _current?.status == 'pending' ? _current?.inviteCode : null;
 
   Future<void> loadCurrentCouple() async {
     await _run(() async {
@@ -33,6 +32,13 @@ class CoupleProvider extends ChangeNotifier {
   Future<void> bindByInviteCode(String inviteCode) async {
     await _run(() async {
       _current = await _service.bindByInviteCode(inviteCode);
+    });
+  }
+
+  Future<void> leaveCurrentCouple() async {
+    await _run(() async {
+      await _service.leaveCurrentCouple();
+      _current = null;
     });
   }
 
@@ -55,11 +61,20 @@ class CoupleProvider extends ChangeNotifier {
     try {
       await action();
     } catch (error) {
-      _error = error.toString();
+      _error = _friendlyMessage(error);
       rethrow;
     } finally {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  String _friendlyMessage(Object error) {
+    final message = error.toString();
+    const exceptionPrefix = 'Exception: ';
+    if (message.startsWith(exceptionPrefix)) {
+      return message.substring(exceptionPrefix.length);
+    }
+    return message;
   }
 }

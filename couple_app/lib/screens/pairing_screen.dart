@@ -23,6 +23,9 @@ class _PairingScreenState extends State<PairingScreen> {
   Widget build(BuildContext context) {
     final couple = context.watch<CoupleProvider>();
     final inviteCode = couple.inviteCode;
+    final canResetPairing = couple.error?.contains('当前账号') == true &&
+        (couple.error?.contains('配对') == true ||
+            couple.error?.contains('邀请码') == true);
 
     return Scaffold(
       appBar: AppBar(title: const Text('情侣配对')),
@@ -49,8 +52,7 @@ class _PairingScreenState extends State<PairingScreen> {
                   const SizedBox(height: 24),
                   if (inviteCode == null)
                     FilledButton.icon(
-                      onPressed:
-                          couple.isLoading ? null : () => couple.createInvite(),
+                      onPressed: couple.isLoading ? null : _createInvite,
                       icon: const Icon(Icons.key),
                       label: const Text('生成邀请码'),
                     )
@@ -71,6 +73,14 @@ class _PairingScreenState extends State<PairingScreen> {
                                     fontWeight: FontWeight.w900,
                                     letterSpacing: 2,
                                   ),
+                            ),
+                            const SizedBox(height: 12),
+                            TextButton.icon(
+                              onPressed: couple.isLoading
+                                  ? null
+                                  : _confirmCancelInvite,
+                              icon: const Icon(Icons.refresh),
+                              label: const Text('取消这个邀请码'),
                             ),
                           ],
                         ),
@@ -120,6 +130,15 @@ class _PairingScreenState extends State<PairingScreen> {
                         color: Theme.of(context).colorScheme.error,
                       ),
                     ),
+                    if (canResetPairing) ...[
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        onPressed:
+                            couple.isLoading ? null : _confirmResetPairingState,
+                        icon: const Icon(Icons.restart_alt),
+                        label: const Text('重置配对状态'),
+                      ),
+                    ],
                   ],
                 ],
               ),
@@ -128,6 +147,14 @@ class _PairingScreenState extends State<PairingScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _createInvite() async {
+    try {
+      await context.read<CoupleProvider>().createInvite();
+    } catch (_) {
+      // The provider exposes the message for the UI.
+    }
   }
 
   Future<void> _bind() async {
@@ -141,6 +168,71 @@ class _PairingScreenState extends State<PairingScreen> {
 
     try {
       await context.read<CoupleProvider>().bindByInviteCode(code);
+    } catch (_) {
+      // The provider exposes the message for the UI.
+    }
+  }
+
+  Future<void> _confirmCancelInvite() async {
+    await _confirmLeaveCurrentCouple(
+      title: '取消当前邀请码？',
+      content: '取消后，这个邀请码会失效，你可以重新生成新的邀请码。',
+      cancelLabel: '保留',
+      confirmLabel: '取消邀请码',
+      successMessage: '已取消，可以重新生成邀请码。',
+    );
+  }
+
+  Future<void> _confirmResetPairingState() async {
+    await _confirmLeaveCurrentCouple(
+      title: '重置配对状态？',
+      content: '这会解除当前账号参与的待确认或已配对关系，然后你可以重新生成或输入邀请码。',
+      cancelLabel: '取消',
+      confirmLabel: '重置',
+      successMessage: '已重置，可以重新开始配对。',
+    );
+  }
+
+  Future<void> _confirmLeaveCurrentCouple({
+    required String title,
+    required String content,
+    required String cancelLabel,
+    required String confirmLabel,
+    required String successMessage,
+  }) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(title),
+          content: Text(content),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text(cancelLabel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text(confirmLabel),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    try {
+      await context.read<CoupleProvider>().leaveCurrentCouple();
+      _inviteController.clear();
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(successMessage)),
+      );
     } catch (_) {
       // The provider exposes the message for the UI.
     }

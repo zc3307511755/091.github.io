@@ -450,6 +450,28 @@ begin
 end;
 $$;
 
+create or replace function public.leave_current_couple()
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  current_user_id uuid := auth.uid();
+begin
+  if current_user_id is null then
+    raise exception 'not authenticated';
+  end if;
+
+  update public.couples c
+  set status = 'archived',
+      archived_at = now(),
+      updated_at = now()
+  where c.status in ('pending', 'active')
+    and (c.user_a_id = current_user_id or c.user_b_id = current_user_id);
+end;
+$$;
+
 create or replace function public.use_coupon(coupon_id_input uuid)
 returns public.coupons
 language plpgsql
@@ -1038,6 +1060,7 @@ revoke execute on function public.can_manage_own_meal_object(text) from public;
 
 revoke execute on function public.create_couple_invite() from public;
 revoke execute on function public.bind_couple(text) from public;
+revoke execute on function public.leave_current_couple() from public;
 revoke execute on function public.use_coupon(uuid) from public;
 revoke execute on function public.respond_coupon_request(uuid, boolean, text) from public;
 
@@ -1049,5 +1072,6 @@ grant execute on function public.can_manage_own_meal_object(text) to authenticat
 
 grant execute on function public.create_couple_invite() to authenticated;
 grant execute on function public.bind_couple(text) to authenticated;
+grant execute on function public.leave_current_couple() to authenticated;
 grant execute on function public.use_coupon(uuid) to authenticated;
 grant execute on function public.respond_coupon_request(uuid, boolean, text) to authenticated;

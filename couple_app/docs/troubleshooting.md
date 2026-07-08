@@ -169,6 +169,52 @@ Current client fallback:
   keep working.
 - Request coupons and coupon expiry still require the upgraded schema.
 
+## Invite Pairing Cannot Connect
+
+Symptom:
+
+- One account generates an invite code, but the other account cannot bind it.
+- The app may show an English backend error such as:
+  `user already has an active or pending couple`
+
+Cause already seen:
+
+- Both test accounts already had the same `active` row in `couples`.
+- The pairing RPC intentionally blocks new invites or bindings when a user
+  already has a `pending` or `active` relationship.
+
+Diagnosis:
+
+```powershell
+$envFile = "couple_app\.env"
+$vars = @{}
+foreach ($line in Get-Content -LiteralPath $envFile) {
+  if ($line -match "^\s*#" -or $line -notmatch "=") { continue }
+  $name, $value = $line.Split("=", 2)
+  $vars[$name] = $value.Trim()
+}
+
+$url = $vars["SUPABASE_URL"]
+$key = $vars["SUPABASE_PUBLISHABLE_KEY"]
+
+# Login as the affected account, then query with that user's access token:
+Invoke-RestMethod `
+  -Uri "${url}/rest/v1/couples?select=id,status,invite_code,paired_at,created_at&status=in.(pending,active)" `
+  -Headers @{
+    apikey = $key
+    Authorization = "Bearer <USER_ACCESS_TOKEN>"
+    "Accept-Profile" = "public"
+    "Content-Profile" = "public"
+  }
+```
+
+Fix:
+
+1. Run the latest `couple_app/supabase_schema.sql` in Supabase SQL Editor.
+2. Use the app's new cancel invite or解除配对 action, which calls
+   `leave_current_couple`.
+3. Generate a fresh invite code and bind with the other account.
+
 ## PowerShell Command Pitfalls
 
 Avoid piping directly after a multiline block:

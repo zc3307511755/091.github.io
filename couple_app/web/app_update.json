@@ -1,12 +1,12 @@
 {
-  "latest_version": "0.2.1",
-  "latest_build_number": 3,
+  "latest_version": "0.2.2",
+  "latest_build_number": 4,
   "minimum_build_number": 1,
   "download_url": "https://zc3307511755.github.io/091.github.io/downloads/",
-  "published_at": "2026-07-05",
+  "published_at": "2026-07-08",
   "release_notes": [
-    "修复安卓版线上下载更新地址。",
-    "恢复旧数据库下的基础情侣券发送和使用。",
-    "请求券和有效期功能会在数据库未升级时给出明确提示。"
+    "修复邀请码配对被旧关系卡住时无法恢复的问题。",
+    "新增取消邀请码和解除配对入口。",
+    "优化配对失败时的中文提示。"
   ]
 }

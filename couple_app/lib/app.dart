@@ -104,6 +104,25 @@ class _AppGateState extends State<AppGate> {
       });
     }
 
+    if (userId != null &&
+        coupleId == null &&
+        _loadedCoupleId != null &&
+        !couple.isLoading) {
+      _loadedCoupleId = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        context.read<TodoProvider>().stopWatching();
+        context.read<CouponProvider>().stopWatching();
+        context.read<JournalProvider>().stopWatching();
+        context.read<AnniversaryProvider>().stopWatching();
+        context.read<MealProvider>().stopWatching();
+        context.read<TodoProvider>().clear();
+        context.read<CouponProvider>().clear();
+        context.read<JournalProvider>().clear();
+        context.read<AnniversaryProvider>().clear();
+        context.read<MealProvider>().clear();
+      });
+    }
+
     if (coupleId != null && _loadedCoupleId != coupleId) {
       _loadedCoupleId = coupleId;
       WidgetsBinding.instance.addPostFrameCallback((_) {
