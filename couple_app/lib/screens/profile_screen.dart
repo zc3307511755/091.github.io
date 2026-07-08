@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -31,14 +32,23 @@ class ProfileScreen extends StatelessWidget {
           children: [
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: CircleAvatar(
-                child: Text(
-                  _initial(profile?.nickname),
-                ),
+              leading: _EditableAvatar(
+                avatarPath: profile?.avatarUrl,
+                nickname: profile?.nickname,
+                isLoading: auth.isLoading,
+                onTap: auth.isLoading ? null : () => _pickAvatar(context),
               ),
               title: Text(profile?.nickname ?? 'User'),
               subtitle: Text(user?.email ?? ''),
             ),
+            if (auth.isLoading) const LinearProgressIndicator(),
+            if (auth.error != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _friendlyMessage(auth.error!),
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
             const SizedBox(height: 16),
             Card(
               child: Column(
@@ -155,6 +165,107 @@ class ProfileScreen extends StatelessWidget {
     }
   }
 
+  Future<void> _pickAvatar(BuildContext context) async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 512,
+      maxHeight: 512,
+      imageQuality: 85,
+    );
+    if (picked == null || !context.mounted) {
+      return;
+    }
+
+    final extension =
+        picked.name.contains('.') ? picked.name.split('.').last : 'jpg';
+    final bytes = await picked.readAsBytes();
+    if (!context.mounted) {
+      return;
+    }
+
+    try {
+      await context.read<AuthProvider>().updateAvatar(
+            imageBytes: bytes,
+            fileExtension: extension,
+          );
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('头像已更新。')),
+      );
+    } catch (_) {
+      // AuthProvider exposes the message for the UI.
+    }
+  }
+
+  String _friendlyMessage(String message) {
+    const exceptionPrefix = 'Exception: ';
+    if (message.startsWith(exceptionPrefix)) {
+      return message.substring(exceptionPrefix.length);
+    }
+    return message;
+  }
+}
+
+class _EditableAvatar extends StatelessWidget {
+  const _EditableAvatar({
+    required this.avatarPath,
+    required this.nickname,
+    required this.isLoading,
+    required this.onTap,
+  });
+
+  final String? avatarPath;
+  final String? nickname;
+  final bool isLoading;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final initial = _initial(nickname);
+
+    return Tooltip(
+      message: '修改头像',
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            _AvatarImage(
+              avatarPath: avatarPath,
+              initial: initial,
+            ),
+            Positioned(
+              right: -2,
+              bottom: -2,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Theme.of(context).scaffoldBackgroundColor,
+                    width: 2,
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Icon(
+                    isLoading ? Icons.hourglass_top : Icons.photo_camera,
+                    size: 14,
+                    color: Theme.of(context).colorScheme.onPrimary,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   String _initial(String? nickname) {
     final value = nickname?.trim();
     if (value == null || value.isEmpty) {
@@ -162,6 +273,97 @@ class ProfileScreen extends StatelessWidget {
     }
 
     return value.substring(0, 1).toUpperCase();
+  }
+}
+
+class _AvatarImage extends StatefulWidget {
+  const _AvatarImage({
+    required this.avatarPath,
+    required this.initial,
+  });
+
+  final String? avatarPath;
+  final String initial;
+
+  @override
+  State<_AvatarImage> createState() => _AvatarImageState();
+}
+
+class _AvatarImageState extends State<_AvatarImage> {
+  Future<String>? _signedUrlFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSignedUrl();
+  }
+
+  @override
+  void didUpdateWidget(covariant _AvatarImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.avatarPath != widget.avatarPath) {
+      _loadSignedUrl();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final future = _signedUrlFuture;
+    if (future == null) {
+      return _InitialAvatar(initial: widget.initial);
+    }
+
+    return FutureBuilder<String>(
+      future: future,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return _InitialAvatar(initial: widget.initial);
+        }
+
+        return ClipOval(
+          child: Image.network(
+            snapshot.data!,
+            width: 56,
+            height: 56,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) {
+              return _InitialAvatar(initial: widget.initial);
+            },
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) {
+                return child;
+              }
+              return _InitialAvatar(initial: widget.initial);
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  void _loadSignedUrl() {
+    final avatarPath = widget.avatarPath;
+    if (avatarPath == null || avatarPath.trim().isEmpty) {
+      _signedUrlFuture = null;
+      return;
+    }
+
+    _signedUrlFuture =
+        context.read<AuthProvider>().signedAvatarUrl(avatarPath.trim());
+  }
+}
+
+class _InitialAvatar extends StatelessWidget {
+  const _InitialAvatar({required this.initial});
+
+  final String initial;
+
+  @override
+  Widget build(BuildContext context) {
+    return CircleAvatar(
+      radius: 28,
+      child: Text(initial),
+    );
   }
 }
 

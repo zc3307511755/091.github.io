@@ -1,14 +1,14 @@
 {
-  "latest_version": "0.2.3",
-  "latest_build_number": 2005,
-  "latest_base_build_number": 5,
+  "latest_version": "0.2.4",
+  "latest_build_number": 2006,
+  "latest_base_build_number": 6,
   "minimum_build_number": 1,
-  "download_url": "https://zc3307511755.github.io/091.github.io/downloads/womenlia-0.2.3-build5-arm64-v8a.apk",
+  "download_url": "https://zc3307511755.github.io/091.github.io/downloads/womenlia-0.2.4-build6-arm64-v8a.apk",
   "download_page_url": "https://zc3307511755.github.io/091.github.io/downloads/",
   "published_at": "2026-07-08",
   "release_notes": [
-    "修复安卓版 APK 缺少后端配置导致无法正常打开的问题。",
-    "优化安卓版更新下载，默认直达推荐安装包。",
-    "保留下载页，可手动选择其它手机架构版本。"
+    "新增用户自定义头像功能。",
+    "头像将保存到私有空间，仅自己和已配对的另一半可查看。",
+    "优化我的页面头像展示和上传反馈。"
   ]
 }

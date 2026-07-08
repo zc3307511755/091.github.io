@@ -71,6 +71,30 @@ class AuthProvider extends ChangeNotifier {
     });
   }
 
+  Future<void> updateAvatar({
+    required Uint8List imageBytes,
+    required String fileExtension,
+  }) async {
+    final currentUser = _user;
+    if (currentUser == null) {
+      throw Exception('请先登录后再修改头像。');
+    }
+
+    await _run(() async {
+      _profile = await _profileService.updateAvatar(
+            userId: currentUser.id,
+            imageBytes: imageBytes,
+            fileExtension: fileExtension,
+            oldAvatarPath: _profile?.avatarUrl,
+          ) ??
+          _profile;
+    });
+  }
+
+  Future<String> signedAvatarUrl(String avatarPath) {
+    return _profileService.signedAvatarUrl(avatarPath);
+  }
+
   void clearError() {
     _error = null;
     notifyListeners();

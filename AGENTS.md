@@ -52,6 +52,7 @@ Read this file before making changes.
 ## Supabase Schema Lessons
 
 - New client features can require database schema changes. Always rerun `couple_app/supabase_schema.sql` in Supabase SQL Editor after schema-related changes.
+- Custom avatars require the private `avatars` storage bucket, `profiles.avatar_url`, and avatar storage policies from `supabase_schema.sql`.
 - Invite pairing rejects any account that already has a `pending` or `active` row in `couples`. Check current rows before blaming the UI.
 - The recovery path for stale invite/relationship state is `leave_current_couple`, which archives the current `pending`/`active` row and frees both users to pair again.
 - The coupon request/expiry update requires:

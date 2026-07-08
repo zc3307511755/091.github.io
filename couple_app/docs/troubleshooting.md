@@ -240,6 +240,32 @@ Fix:
    `leave_current_couple`.
 3. Generate a fresh invite code and bind with the other account.
 
+## Avatar Upload Fails
+
+Symptoms:
+
+- Selecting an avatar works, but upload fails.
+- The profile screen shows a Supabase Storage or policy error.
+
+Likely causes:
+
+- The remote database has not been upgraded with the latest
+  `couple_app/supabase_schema.sql`.
+- Missing items:
+  - private `avatars` storage bucket
+  - `can_access_avatar_object`
+  - `can_manage_own_avatar_object`
+  - `avatars_select_visible`
+  - `avatars_insert_own`
+  - `avatars_update_own`
+  - `avatars_delete_own`
+
+Fix:
+
+1. Open Supabase SQL Editor.
+2. Run `couple_app/supabase_schema.sql` completely.
+3. Log out and back in if the old profile data is cached.
+
 ## PowerShell Command Pitfalls
 
 Avoid piping directly after a multiline block:
