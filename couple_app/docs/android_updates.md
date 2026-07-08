@@ -23,8 +23,10 @@ The metadata fields are:
 {
   "latest_version": "0.1.0",
   "latest_build_number": 1,
+  "latest_base_build_number": 1,
   "minimum_build_number": 1,
   "download_url": "",
+  "download_page_url": "",
   "published_at": "2026-07-05",
   "release_notes": ["Update note"]
 }
@@ -36,18 +38,18 @@ The metadata fields are:
 2. Build split APKs for Android:
 
    ```powershell
-   flutter build apk --release --split-per-abi `
-     --dart-define=SUPABASE_URL=https://your-project.supabase.co `
-     --dart-define=SUPABASE_PUBLISHABLE_KEY=your-publishable-or-anon-key
+   .\scripts\build_android_release.ps1
    ```
 
 3. Copy the generated APKs into `web/downloads/` and update
    `web/downloads/index.html`.
 4. Update `web/app_update.json`:
    - `latest_version`: visible version name
-   - `latest_build_number`: Android build number
+   - `latest_build_number`: recommended APK Android versionCode
+   - `latest_base_build_number`: pubspec build suffix for split APKs
    - `minimum_build_number`: lowest allowed build number
-   - `download_url`: use the Pages download page, for example
+   - `download_url`: direct link to the recommended arm64 APK.
+   - `download_page_url`: Pages download page for alternative ABIs, for example
      `https://zc3307511755.github.io/091.github.io/downloads/`
    - `release_notes`: user-facing changes
 5. Push to `main`.
@@ -60,6 +62,10 @@ The metadata fields are:
   the new APK over the old one.
 - If `download_url` is empty, the app can still compare versions but cannot
   show a download button.
+- Release APKs must be built with `SUPABASE_URL` and
+  `SUPABASE_PUBLISHABLE_KEY` dart defines. Use
+  `scripts/build_android_release.ps1`; building manually without those defines
+  creates an APK that cannot connect to the backend.
 - Avoid relying on `raw.githubusercontent.com` as the only APK download target.
   It can pass desktop checks but still fail on some mobile networks.
 - Prefer a Pages download page with split APKs. Most phones should use

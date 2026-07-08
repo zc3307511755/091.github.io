@@ -51,7 +51,8 @@ Checklist:
 1. Open:
    `https://zc3307511755.github.io/091.github.io/app_update.json`
 2. Confirm `download_url` is not empty.
-3. Open the `download_url` on the same phone network.
+3. Open the `download_url` on the same phone network. It should normally point
+   directly to the recommended `arm64-v8a` APK.
 4. Check each APK with HTTP HEAD/GET.
 5. Confirm `latest_build_number` equals the APK's Android `versionCode`.
 
@@ -62,9 +63,20 @@ Lessons learned:
 - A single large universal APK can be unnecessarily fragile.
 - The current stable approach is a GitHub Pages download page at:
   `couple_app/web/downloads/index.html`
+- Keep `download_page_url` as the human-facing page for alternative ABIs, while
+  `download_url` can point directly to the recommended APK for the in-app
+  update button.
 - Flutter/Android can transform a pubspec version such as `0.2.2+4` into
   Android `versionCode='2004'`. The in-app updater compares against Android's
   installed `versionCode`, so `app_update.json` must use `2004`, not `4`.
+- Split APKs have ABI-specific Android `versionCode` offsets, such as
+  `1005` for armeabi-v7a, `2005` for arm64-v8a, and `4005` for x86_64. Keep
+  `latest_build_number` as the recommended arm64 code for old clients, and set
+  `latest_base_build_number` to the pubspec build suffix so new clients do not
+  repeatedly prompt after installing a non-arm64 APK.
+- Release APKs must be built with Supabase dart defines. A plain
+  `flutter build apk --release --split-per-abi` can produce an APK that opens
+  without backend configuration. Use `scripts/build_android_release.ps1`.
 - The page links split APKs:
   - `womenlia-*-arm64-v8a.apk`
   - `womenlia-*-armeabi-v7a.apk`
@@ -80,7 +92,7 @@ $json.latest_build_number
 $json.download_url
 
 & "$env:LOCALAPPDATA\Android\Sdk\build-tools\37.0.0\aapt.exe" `
-  dump badging "couple_app\web\downloads\womenlia-0.2.2-build4-arm64-v8a.apk" |
+  dump badging "C:\src\couple_app_build\build\app\outputs\flutter-apk\app-arm64-v8a-release.apk" |
   Select-String "package:"
 
 Invoke-WebRequest `
@@ -114,6 +126,11 @@ Helpful commands:
 & "$env:LOCALAPPDATA\Android\Sdk\build-tools\37.0.0\apksigner.bat" `
   verify --print-certs "path\to\app.apk"
 ```
+
+On Windows, `aapt dump badging` can fail with `Illegal byte sequence` when the
+APK path contains Chinese characters. Run it against the ASCII build output
+under `C:\src\couple_app_build`, then compare file hashes after copying the APK
+to `couple_app\web\downloads`.
 
 ## Coupon Features Fail
 

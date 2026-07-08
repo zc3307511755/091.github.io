@@ -26,7 +26,7 @@ Read this file before making changes.
   - `flutter analyze`
   - `flutter test`
   - `.\scripts\build_web.ps1 -BaseHref '/091.github.io/'`
-  - Android builds from `C:\src\couple_app_build`
+  - Android builds from `C:\src\couple_app_build` with `.\scripts\build_android_release.ps1`
 
 ## Android Update Lessons
 
@@ -44,8 +44,10 @@ Read this file before making changes.
   - `app_update.json` reports the expected version/build.
   - `/downloads/` returns HTTP 200.
   - each APK returns HTTP 200 and `application/vnd.android.package-archive`.
-- `latest_build_number` must match the Android APK `versionCode` reported by `aapt dump badging`, not the small pubspec build suffix. For example, `version: 0.2.2+4` built as Android `versionCode='2004'`, so update metadata must use `2004`.
+- `latest_build_number` must match the recommended Android APK `versionCode` reported by `aapt dump badging`, not just the small pubspec build suffix. For example, `version: 0.2.3+5` builds arm64 as `versionCode='2005'`, so old clients need metadata `latest_build_number: 2005`.
+- For split APKs, also set `latest_base_build_number` to the pubspec build suffix, such as `5`, so new clients do not repeatedly prompt after installing non-arm64 APKs.
 - Keep the Android signing key stable. Current release builds intentionally use the debug signing config, matching earlier debug APK installs.
+- Android release APKs must be built with Supabase dart defines. Use `scripts/build_android_release.ps1`; a plain `flutter build apk` will produce an APK that cannot connect to Supabase.
 
 ## Supabase Schema Lessons
 

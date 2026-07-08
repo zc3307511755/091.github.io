@@ -239,6 +239,7 @@ class _UpdateTileState extends State<_UpdateTile> {
   Future<void> _showUpdateResult(AppUpdateStatus status) {
     final notes = status.info.releaseNotes;
     final downloadUrl = status.info.downloadUrl;
+    final downloadPageUrl = status.info.downloadPageUrl;
 
     return showDialog<void>(
       context: context,
@@ -272,6 +273,15 @@ class _UpdateTileState extends State<_UpdateTile> {
               onPressed: () => Navigator.of(context).pop(),
               child: Text(status.hasUpdate ? '稍后' : '知道了'),
             ),
+            if (status.hasUpdate && downloadPageUrl != null)
+              TextButton.icon(
+                onPressed: () async {
+                  Navigator.of(context).pop();
+                  await _openDownload(downloadPageUrl);
+                },
+                icon: const Icon(Icons.apps),
+                label: const Text('更多版本'),
+              ),
             if (status.hasUpdate)
               FilledButton.icon(
                 onPressed: downloadUrl == null
@@ -281,7 +291,7 @@ class _UpdateTileState extends State<_UpdateTile> {
                         await _openDownload(downloadUrl);
                       },
                 icon: const Icon(Icons.download),
-                label: const Text('下载新版'),
+                label: const Text('下载推荐版'),
               ),
           ],
         );

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'womenlia-shell-v4';
+const CACHE_NAME = 'womenlia-shell-v5';
 const APP_SHELL = [
   './',
   'index.html',
