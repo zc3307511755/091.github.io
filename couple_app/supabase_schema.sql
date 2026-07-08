@@ -57,6 +57,12 @@ create table if not exists public.profiles (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.user_presence (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  last_seen_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists public.couples (
   id uuid primary key default gen_random_uuid(),
   user_a_id uuid not null references auth.users(id) on delete cascade,
@@ -188,6 +194,8 @@ create table if not exists public.meal_plans (
 create index if not exists couples_user_a_idx on public.couples(user_a_id);
 create index if not exists couples_user_b_idx on public.couples(user_b_id);
 create index if not exists couples_status_idx on public.couples(status);
+create index if not exists user_presence_last_seen_idx
+  on public.user_presence(last_seen_at desc);
 create index if not exists couples_pending_invite_idx
   on public.couples(invite_code)
   where status = 'pending';
@@ -508,6 +516,32 @@ begin
 end;
 $$;
 
+create or replace function public.touch_user_presence()
+returns public.user_presence
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  current_user_id uuid := auth.uid();
+  result public.user_presence%rowtype;
+begin
+  if current_user_id is null then
+    raise exception 'not authenticated';
+  end if;
+
+  insert into public.user_presence (user_id, last_seen_at, updated_at)
+  values (current_user_id, now(), now())
+  on conflict (user_id)
+  do update set
+    last_seen_at = excluded.last_seen_at,
+    updated_at = excluded.updated_at
+  returning * into result;
+
+  return result;
+end;
+$$;
+
 create or replace function public.use_coupon(coupon_id_input uuid)
 returns public.coupons
 language plpgsql
@@ -663,6 +697,11 @@ create trigger profiles_set_updated_at
   before update on public.profiles
   for each row execute function public.set_updated_at();
 
+drop trigger if exists user_presence_set_updated_at on public.user_presence;
+create trigger user_presence_set_updated_at
+  before update on public.user_presence
+  for each row execute function public.set_updated_at();
+
 drop trigger if exists couples_set_updated_at on public.couples;
 create trigger couples_set_updated_at
   before update on public.couples
@@ -743,6 +782,7 @@ create trigger meal_plans_prevent_identity_update
 -- ---------------------------------------------------------------------------
 
 alter table public.profiles enable row level security;
+alter table public.user_presence enable row level security;
 alter table public.couples enable row level security;
 alter table public.todos enable row level security;
 alter table public.coupons enable row level security;
@@ -776,6 +816,21 @@ create policy "profiles_delete_self"
 on public.profiles for delete
 to authenticated
 using (id = auth.uid());
+
+drop policy if exists "user_presence_select_visible" on public.user_presence;
+create policy "user_presence_select_visible"
+on public.user_presence for select
+to authenticated
+using (public.is_visible_profile(user_id));
+
+drop policy if exists "user_presence_insert_self" on public.user_presence;
+drop policy if exists "user_presence_update_self" on public.user_presence;
+
+drop policy if exists "user_presence_delete_self" on public.user_presence;
+create policy "user_presence_delete_self"
+on public.user_presence for delete
+to authenticated
+using (user_id = auth.uid());
 
 drop policy if exists "couples_select_own" on public.couples;
 create policy "couples_select_own"
@@ -1071,6 +1126,7 @@ using (
 -- ---------------------------------------------------------------------------
 
 alter table public.todos replica identity full;
+alter table public.user_presence replica identity full;
 alter table public.coupons replica identity full;
 alter table public.coupon_requests replica identity full;
 alter table public.journals replica identity full;
@@ -1081,6 +1137,13 @@ alter table public.meal_plans replica identity full;
 do $$
 begin
   alter publication supabase_realtime add table public.todos;
+exception
+  when duplicate_object or undefined_object then null;
+end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.user_presence;
 exception
   when duplicate_object or undefined_object then null;
 end $$;
@@ -1148,6 +1211,7 @@ revoke execute on function public.can_manage_own_avatar_object(text) from public
 revoke execute on function public.create_couple_invite() from public;
 revoke execute on function public.bind_couple(text) from public;
 revoke execute on function public.leave_current_couple() from public;
+revoke execute on function public.touch_user_presence() from public;
 revoke execute on function public.use_coupon(uuid) from public;
 revoke execute on function public.respond_coupon_request(uuid, boolean, text) from public;
 
@@ -1162,5 +1226,6 @@ grant execute on function public.can_manage_own_avatar_object(text) to authentic
 grant execute on function public.create_couple_invite() to authenticated;
 grant execute on function public.bind_couple(text) to authenticated;
 grant execute on function public.leave_current_couple() to authenticated;
+grant execute on function public.touch_user_presence() to authenticated;
 grant execute on function public.use_coupon(uuid) to authenticated;
 grant execute on function public.respond_coupon_request(uuid, boolean, text) to authenticated;

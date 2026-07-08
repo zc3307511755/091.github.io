@@ -8,6 +8,7 @@ import 'providers/couple_provider.dart';
 import 'providers/coupon_provider.dart';
 import 'providers/journal_provider.dart';
 import 'providers/meal_provider.dart';
+import 'providers/presence_provider.dart';
 import 'providers/todo_provider.dart';
 import 'screens/auth/auth_screen.dart';
 import 'screens/home_screen.dart';
@@ -76,12 +77,14 @@ class _AppGateState extends State<AppGate> {
         context.read<JournalProvider>().stopWatching();
         context.read<AnniversaryProvider>().stopWatching();
         context.read<MealProvider>().stopWatching();
+        context.read<PresenceProvider>().stopWatching();
         context.read<CoupleProvider>().clear();
         context.read<TodoProvider>().clear();
         context.read<CouponProvider>().clear();
         context.read<JournalProvider>().clear();
         context.read<AnniversaryProvider>().clear();
         context.read<MealProvider>().clear();
+        context.read<PresenceProvider>().clear();
       });
     }
 
@@ -94,12 +97,14 @@ class _AppGateState extends State<AppGate> {
         context.read<JournalProvider>().stopWatching();
         context.read<AnniversaryProvider>().stopWatching();
         context.read<MealProvider>().stopWatching();
+        context.read<PresenceProvider>().stopWatching();
         context.read<CoupleProvider>().clear();
         context.read<TodoProvider>().clear();
         context.read<CouponProvider>().clear();
         context.read<JournalProvider>().clear();
         context.read<AnniversaryProvider>().clear();
         context.read<MealProvider>().clear();
+        context.read<PresenceProvider>().clear();
         context.read<CoupleProvider>().loadCurrentCouple();
       });
     }
@@ -115,11 +120,13 @@ class _AppGateState extends State<AppGate> {
         context.read<JournalProvider>().stopWatching();
         context.read<AnniversaryProvider>().stopWatching();
         context.read<MealProvider>().stopWatching();
+        context.read<PresenceProvider>().stopWatching();
         context.read<TodoProvider>().clear();
         context.read<CouponProvider>().clear();
         context.read<JournalProvider>().clear();
         context.read<AnniversaryProvider>().clear();
         context.read<MealProvider>().clear();
+        context.read<PresenceProvider>().clear();
       });
     }
 
@@ -131,6 +138,13 @@ class _AppGateState extends State<AppGate> {
         context.read<JournalProvider>().watchJournals(coupleId);
         context.read<AnniversaryProvider>().watchAnniversaries(coupleId);
         context.read<MealProvider>().watchMeals(coupleId);
+        final activeCouple = context.read<CoupleProvider>().current;
+        if (userId != null && activeCouple != null) {
+          context.read<PresenceProvider>().watchPair(
+                currentUserId: userId,
+                partnerUserId: activeCouple.partnerId(userId),
+              );
+        }
       });
     }
 

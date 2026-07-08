@@ -71,6 +71,26 @@ class AuthProvider extends ChangeNotifier {
     });
   }
 
+  Future<void> updateNickname(String nickname) async {
+    final currentUser = _user;
+    final trimmed = nickname.trim();
+    if (currentUser == null) {
+      throw Exception('请先登录后再修改名字。');
+    }
+    if (trimmed.isEmpty) {
+      throw Exception('名字不能为空。');
+    }
+    if (trimmed.length > 20) {
+      throw Exception('名字最多 20 个字。');
+    }
+
+    await _run(() async {
+      _profile =
+          await _profileService.updateNickname(currentUser.id, trimmed) ??
+              _profile;
+    });
+  }
+
   Future<void> updateAvatar({
     required Uint8List imageBytes,
     required String fileExtension,

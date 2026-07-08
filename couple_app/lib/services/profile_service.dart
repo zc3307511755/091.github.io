@@ -16,10 +16,25 @@ class ProfileService {
     return data == null ? null : Profile.fromMap(data);
   }
 
-  Future<void> updateNickname(String userId, String nickname) {
-    return SupabaseService.client
+  Future<Profile?> loadVisibleProfile(String userId) async {
+    final data = await SupabaseService.client
         .from('profiles')
-        .update({'nickname': nickname}).eq('id', userId);
+        .select()
+        .eq('id', userId)
+        .maybeSingle();
+
+    return data == null ? null : Profile.fromMap(data);
+  }
+
+  Future<Profile?> updateNickname(String userId, String nickname) async {
+    final data = await SupabaseService.client
+        .from('profiles')
+        .update({'nickname': nickname})
+        .eq('id', userId)
+        .select()
+        .maybeSingle();
+
+    return data == null ? null : Profile.fromMap(data);
   }
 
   Future<Profile?> updateAvatar({

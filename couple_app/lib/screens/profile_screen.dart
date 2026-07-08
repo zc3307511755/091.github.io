@@ -4,14 +4,17 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/app_update_info.dart';
+import '../models/user_presence.dart';
 import '../providers/anniversary_provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/couple_provider.dart';
 import '../providers/coupon_provider.dart';
 import '../providers/journal_provider.dart';
 import '../providers/meal_provider.dart';
+import '../providers/presence_provider.dart';
 import '../providers/todo_provider.dart';
 import '../services/app_update_service.dart';
+import '../services/profile_service.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -21,8 +24,12 @@ class ProfileScreen extends StatelessWidget {
     final auth = context.watch<AuthProvider>();
     final coupleProvider = context.watch<CoupleProvider>();
     final couple = coupleProvider.current;
+    final presence = context.watch<PresenceProvider>();
     final user = auth.user;
     final profile = auth.profile;
+    final partnerId = user != null && couple?.isActive == true
+        ? couple!.partnerId(user.id)
+        : null;
 
     return Scaffold(
       appBar: AppBar(title: const Text('我的')),
@@ -40,6 +47,11 @@ class ProfileScreen extends StatelessWidget {
               ),
               title: Text(profile?.nickname ?? 'User'),
               subtitle: Text(user?.email ?? ''),
+              trailing: IconButton(
+                tooltip: '修改名字',
+                onPressed: auth.isLoading ? null : () => _editNickname(context),
+                icon: const Icon(Icons.edit),
+              ),
             ),
             if (auth.isLoading) const LinearProgressIndicator(),
             if (auth.error != null) ...[
@@ -89,6 +101,22 @@ class ProfileScreen extends StatelessWidget {
                 style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
             ],
+            if (user != null && partnerId != null) ...[
+              const SizedBox(height: 16),
+              _PartnerProfileName(
+                partnerId: partnerId,
+                builder: (context, partnerName) {
+                  return _OnlineStatusCard(
+                    selfName: profile?.nickname ?? '我',
+                    partnerName: partnerName ?? '另一半',
+                    selfPresence: presence.presenceFor(user.id),
+                    partnerPresence: presence.presenceFor(partnerId),
+                    isLoading: presence.isLoading,
+                    error: presence.error,
+                  );
+                },
+              ),
+            ],
             const SizedBox(height: 16),
             const _UpdateTile(),
             const SizedBox(height: 16),
@@ -109,6 +137,7 @@ class ProfileScreen extends StatelessWidget {
     final journals = context.read<JournalProvider>();
     final anniversaries = context.read<AnniversaryProvider>();
     final meals = context.read<MealProvider>();
+    final presence = context.read<PresenceProvider>();
     final couple = context.read<CoupleProvider>();
     final auth = context.read<AuthProvider>();
 
@@ -117,14 +146,79 @@ class ProfileScreen extends StatelessWidget {
     await journals.stopWatching();
     await anniversaries.stopWatching();
     await meals.stopWatching();
+    await presence.stopWatching();
 
     todos.clear();
     coupons.clear();
     journals.clear();
     anniversaries.clear();
     meals.clear();
+    presence.clear();
     couple.clear();
     await auth.signOut();
+  }
+
+  Future<void> _editNickname(BuildContext context) async {
+    final current = context.read<AuthProvider>().profile?.nickname ?? '';
+    final controller = TextEditingController(text: current);
+
+    final nickname = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('修改名字'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            maxLength: 20,
+            textInputAction: TextInputAction.done,
+            decoration: const InputDecoration(
+              labelText: '你的名字',
+              border: OutlineInputBorder(),
+              counterText: '',
+            ),
+            onSubmitted: (_) {
+              Navigator.of(context).pop(controller.text.trim());
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.of(context).pop(controller.text.trim());
+              },
+              child: const Text('保存'),
+            ),
+          ],
+        );
+      },
+    );
+    controller.dispose();
+
+    if (nickname == null || !context.mounted) {
+      return;
+    }
+    if (nickname.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('名字不能为空。')),
+      );
+      return;
+    }
+
+    try {
+      await context.read<AuthProvider>().updateNickname(nickname);
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('名字已更新。')),
+      );
+    } catch (_) {
+      // AuthProvider exposes the message for the UI.
+    }
   }
 
   Future<void> _confirmLeaveCouple(BuildContext context) async {
@@ -206,6 +300,161 @@ class ProfileScreen extends StatelessWidget {
       return message.substring(exceptionPrefix.length);
     }
     return message;
+  }
+}
+
+class _PartnerProfileName extends StatefulWidget {
+  const _PartnerProfileName({
+    required this.partnerId,
+    required this.builder,
+  });
+
+  final String partnerId;
+  final Widget Function(BuildContext context, String? partnerName) builder;
+
+  @override
+  State<_PartnerProfileName> createState() => _PartnerProfileNameState();
+}
+
+class _PartnerProfileNameState extends State<_PartnerProfileName> {
+  final ProfileService _service = ProfileService();
+  Future<String?>? _nameFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant _PartnerProfileName oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.partnerId != widget.partnerId) {
+      _load();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<String?>(
+      future: _nameFuture,
+      builder: (context, snapshot) {
+        return widget.builder(context, snapshot.data);
+      },
+    );
+  }
+
+  void _load() {
+    _nameFuture = _service.loadVisibleProfile(widget.partnerId).then((profile) {
+      final nickname = profile?.nickname.trim();
+      return nickname == null || nickname.isEmpty ? null : nickname;
+    }).catchError((_) => null);
+  }
+}
+
+class _OnlineStatusCard extends StatelessWidget {
+  const _OnlineStatusCard({
+    required this.selfName,
+    required this.partnerName,
+    required this.selfPresence,
+    required this.partnerPresence,
+    required this.isLoading,
+    required this.error,
+  });
+
+  final String selfName;
+  final String partnerName;
+  final UserPresence? selfPresence;
+  final UserPresence? partnerPresence;
+  final bool isLoading;
+  final String? error;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Column(
+        children: [
+          ListTile(
+            leading: const Icon(Icons.sensors),
+            title: const Text('在线状态'),
+            subtitle: const Text('根据最近活跃时间自动更新'),
+            trailing: isLoading
+                ? const SizedBox.square(
+                    dimension: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : null,
+          ),
+          const Divider(height: 1),
+          _PresenceRow(
+            label: selfName.trim().isEmpty ? '我' : selfName.trim(),
+            presence: selfPresence,
+          ),
+          _PresenceRow(
+            label: partnerName.trim().isEmpty ? '另一半' : partnerName.trim(),
+            presence: partnerPresence,
+          ),
+          if (error != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: Text(
+                error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PresenceRow extends StatelessWidget {
+  const _PresenceRow({
+    required this.label,
+    required this.presence,
+  });
+
+  final String label;
+  final UserPresence? presence;
+
+  @override
+  Widget build(BuildContext context) {
+    final isOnline = presence?.isOnline == true;
+    final lastSeenAt = presence?.lastSeenAt;
+    final color = isOnline
+        ? const Color(0xFF2E7D32)
+        : Theme.of(context).colorScheme.outline;
+
+    return ListTile(
+      leading: Icon(
+        Icons.circle,
+        size: 12,
+        color: color,
+      ),
+      title: Text(label),
+      subtitle: Text(_statusText(isOnline, lastSeenAt)),
+    );
+  }
+
+  String _statusText(bool isOnline, DateTime? lastSeenAt) {
+    if (isOnline) {
+      return '在线';
+    }
+    if (lastSeenAt == null) {
+      return '暂无在线记录';
+    }
+
+    final diff = DateTime.now().difference(lastSeenAt);
+    if (diff.inMinutes < 1) {
+      return '刚刚离线';
+    }
+    if (diff.inHours < 1) {
+      return '${diff.inMinutes} 分钟前在线';
+    }
+    if (diff.inDays < 1) {
+      return '${diff.inHours} 小时前在线';
+    }
+    return '${diff.inDays} 天前在线';
   }
 }
 

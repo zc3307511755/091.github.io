@@ -1,14 +1,14 @@
 {
-  "latest_version": "0.2.4",
-  "latest_build_number": 2006,
-  "latest_base_build_number": 6,
+  "latest_version": "0.2.5",
+  "latest_build_number": 2007,
+  "latest_base_build_number": 7,
   "minimum_build_number": 1,
-  "download_url": "https://zc3307511755.github.io/091.github.io/downloads/womenlia-0.2.4-build6-arm64-v8a.apk",
+  "download_url": "https://zc3307511755.github.io/091.github.io/downloads/womenlia-0.2.5-build7-arm64-v8a.apk",
   "download_page_url": "https://zc3307511755.github.io/091.github.io/downloads/",
   "published_at": "2026-07-08",
   "release_notes": [
-    "新增用户自定义头像功能。",
-    "头像将保存到私有空间，仅自己和已配对的另一半可查看。",
-    "优化我的页面头像展示和上传反馈。"
+    "新增用户名字修改功能。",
+    "新增情侣双方在线状态与最近在线时间。",
+    "优化我的页面资料展示。"
   ]
 }

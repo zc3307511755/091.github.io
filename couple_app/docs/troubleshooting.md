@@ -266,6 +266,64 @@ Fix:
 2. Run `couple_app/supabase_schema.sql` completely.
 3. Log out and back in if the old profile data is cached.
 
+## Online Status Does Not Work
+
+Symptoms:
+
+- Profile page cannot show online status.
+- The app shows a message saying the database online status feature has not
+  been upgraded.
+- Supabase returns errors mentioning `user_presence`, `touch_user_presence`,
+  schema cache, `PGRST202`, or `PGRST205`.
+
+Likely causes:
+
+- The remote database has not been upgraded with the latest
+  `couple_app/supabase_schema.sql`.
+- Missing items:
+  - `user_presence`
+  - `touch_user_presence`
+  - `user_presence_select_visible`
+  - Realtime publication for `user_presence`
+
+Security note:
+
+- Do not create direct authenticated insert/update policies for
+  `user_presence`. Clients should only update presence through
+  `touch_user_presence`, which writes `last_seen_at` with the server timestamp.
+
+Diagnosis:
+
+```powershell
+$envFile = "couple_app\.env"
+$vars = @{}
+foreach ($line in Get-Content -LiteralPath $envFile) {
+  if ($line -match "^\s*#" -or $line -notmatch "=") { continue }
+  $name, $value = $line.Split("=", 2)
+  $vars[$name] = $value.Trim()
+}
+
+$url = $vars["SUPABASE_URL"]
+$key = $vars["SUPABASE_PUBLISHABLE_KEY"]
+$headers = @{
+  apikey = $key
+  Authorization = "Bearer <USER_ACCESS_TOKEN>"
+  "Accept-Profile" = "public"
+  "Content-Profile" = "public"
+}
+
+Invoke-WebRequest `
+  -Uri "${url}/rest/v1/user_presence?select=user_id,last_seen_at&limit=1" `
+  -Headers $headers `
+  -UseBasicParsing
+```
+
+Fix:
+
+1. Open Supabase SQL Editor.
+2. Run `couple_app/supabase_schema.sql` completely.
+3. Log in with both paired accounts and open the profile page.
+
 ## PowerShell Command Pitfalls
 
 Avoid piping directly after a multiline block:

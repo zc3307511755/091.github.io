@@ -10,6 +10,7 @@ import 'providers/couple_provider.dart';
 import 'providers/coupon_provider.dart';
 import 'providers/journal_provider.dart';
 import 'providers/meal_provider.dart';
+import 'providers/presence_provider.dart';
 import 'providers/todo_provider.dart';
 
 Future<void> main() async {
@@ -40,6 +41,7 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => JournalProvider()),
         ChangeNotifierProvider(create: (_) => AnniversaryProvider()),
         ChangeNotifierProvider(create: (_) => MealProvider()),
+        ChangeNotifierProvider(create: (_) => PresenceProvider()),
       ],
       child: const CoupleApp(),
     ),
