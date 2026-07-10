@@ -46,56 +46,100 @@ class DashboardScreen extends StatelessWidget {
         relationshipAnniversary?.eventDate ?? couple?.pairedAt;
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('首页'),
+        toolbarHeight: 64,
+        title: Row(
+          children: [
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFE1EA),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const SizedBox(
+                width: 36,
+                height: 36,
+                child: Icon(Icons.favorite_rounded, color: Color(0xFFE94B78)),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('我们俩', style: Theme.of(context).textTheme.titleLarge),
+                Text(
+                  '今天也在一起',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: const Color(0xFF8A7B86),
+                      ),
+                ),
+              ],
+            ),
+          ],
+        ),
         actions: [
-          IconButton(
-            tooltip: '我的',
-            onPressed: () => onOpenTab(6),
-            icon: const Icon(Icons.person_outline),
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: IconButton.filledTonal(
+              tooltip: '我的',
+              onPressed: () => onOpenTab(6),
+              icon: const Icon(Icons.person_outline),
+            ),
           ),
         ],
       ),
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: () => _refresh(context),
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-            children: [
-              _HeroSummary(
-                nickname: auth.profile?.nickname,
-                startDate: relationshipStart,
-                onEditStartDate: () => _editRelationshipStartDate(
-                  context,
-                  existing: relationshipAnniversary,
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFFFFBFC), Color(0xFFFFF5F8), Color(0xFFF5FBFA)],
+          ),
+        ),
+        child: SafeArea(
+          top: false,
+          bottom: false,
+          child: RefreshIndicator(
+            onRefresh: () => _refresh(context),
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 112),
+              children: [
+                _HeroSummary(
+                  nickname: auth.profile?.nickname,
+                  startDate: relationshipStart,
+                  onEditStartDate: () => _editRelationshipStartDate(
+                    context,
+                    existing: relationshipAnniversary,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              _QuickActions(onOpenTab: onOpenTab),
-              const SizedBox(height: 16),
-              _MetricsGrid(
-                openTodoCount: openTodos.length,
-                unusedCouponCount: unusedCoupons,
-                todayPlanCount: todayPlanCount,
-                todayPhotoCount: todayPhotoCount,
-              ),
-              const SizedBox(height: 16),
-              _NextAnniversarySection(
-                item: nextAnniversary,
-                onOpenAnniversaries: () => onOpenTab(5),
-              ),
-              const SizedBox(height: 16),
-              _TodoPreviewSection(
-                items: openTodos.take(3).toList(),
-                isLoading: todos.isLoading,
-                onOpenTodos: () => onOpenTab(1),
-              ),
-              const SizedBox(height: 16),
-              _JournalPreviewSection(
-                item: latestJournal,
-                onOpenJournals: () => onOpenTab(4),
-              ),
-            ],
+                const SizedBox(height: 20),
+                _QuickActions(onOpenTab: onOpenTab),
+                const SizedBox(height: 20),
+                _MetricsGrid(
+                  openTodoCount: openTodos.length,
+                  unusedCouponCount: unusedCoupons,
+                  todayPlanCount: todayPlanCount,
+                  todayPhotoCount: todayPhotoCount,
+                ),
+                const SizedBox(height: 20),
+                _NextAnniversarySection(
+                  item: nextAnniversary,
+                  onOpenAnniversaries: () => onOpenTab(5),
+                ),
+                const SizedBox(height: 16),
+                _TodoPreviewSection(
+                  items: openTodos.take(3).toList(),
+                  isLoading: todos.isLoading,
+                  onOpenTodos: () => onOpenTab(1),
+                ),
+                const SizedBox(height: 16),
+                _JournalPreviewSection(
+                  item: latestJournal,
+                  onOpenJournals: () => onOpenTab(4),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -195,61 +239,132 @@ class _HeroSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final days = _daysTogether(startDate);
     final greeting = _greeting();
     final name = nickname?.trim().isNotEmpty == true ? nickname!.trim() : '今天';
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: theme.colorScheme.primaryContainer,
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFD93E6B), Color(0xFFE95B7B), Color(0xFFF09461)],
+        ),
         borderRadius: BorderRadius.circular(8),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x3DDB5C7E),
+            blurRadius: 22,
+            offset: Offset(0, 12),
+          ),
+        ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '$greeting，$name',
-              style: theme.textTheme.titleMedium?.copyWith(
-                color: theme.colorScheme.onPrimaryContainer,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              days == null ? '我们俩已经准备好了' : '这是你们在一起的第 $days 天',
-              style: theme.textTheme.headlineSmall?.copyWith(
-                color: theme.colorScheme.onPrimaryContainer,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 8),
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: Text(
-                    startDate == null
-                        ? '设置你们真正开始的那一天'
-                        : '开始于 ${DateFormat('yyyy-MM-dd').format(startDate!)}',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onPrimaryContainer,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '$greeting，$name',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Flexible(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                days?.toString() ?? 'NOW',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 54,
+                                  height: 0.94,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 5),
+                            child: Text(
+                              days == null ? '开始记录' : '天的陪伴',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-                TextButton.icon(
+                IconButton(
+                  tooltip: startDate == null ? '设置开始日期' : '修改开始日期',
                   onPressed: onEditStartDate,
+                  style: IconButton.styleFrom(
+                    backgroundColor: const Color(0x33FFFFFF),
+                    foregroundColor: Colors.white,
+                  ),
                   icon: const Icon(Icons.edit_calendar_outlined),
-                  label: Text(startDate == null ? '设置' : '修改'),
                 ),
               ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              _todayLabel(),
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onPrimaryContainer,
+            const SizedBox(height: 18),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: const Color(0x29FFFFFF),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0x52FFFFFF)),
+              ),
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.calendar_month_outlined,
+                      size: 18,
+                      color: Colors.white,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        startDate == null
+                            ? '设置第一天，让故事从这里开始'
+                            : '从 ${DateFormat('yyyy.MM.dd').format(startDate!)} 开始',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _todayLabel(),
+                      style: const TextStyle(
+                          color: Color(0xE6FFFFFF), fontSize: 12),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -296,35 +411,59 @@ class _QuickActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GridView.count(
-      crossAxisCount: 4,
-      mainAxisSpacing: 8,
-      crossAxisSpacing: 8,
-      childAspectRatio: 0.92,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      children: [
-        _ActionTile(
-          icon: Icons.add_task,
-          label: '待办',
-          onTap: () => onOpenTab(1),
-        ),
-        _ActionTile(
-          icon: Icons.card_giftcard,
-          label: '发券',
-          onTap: () => onOpenTab(2),
-        ),
-        _ActionTile(
-          icon: Icons.restaurant_menu,
-          label: '吃啥',
-          onTap: () => onOpenTab(3),
-        ),
-        _ActionTile(
-          icon: Icons.edit_note,
-          label: '日志',
-          onTap: () => onOpenTab(4),
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final childAspectRatio = constraints.maxWidth >= 720
+            ? 2.15
+            : constraints.maxWidth >= 520
+                ? 1.45
+                : 0.86;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '此刻想做什么',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 10),
+            GridView.count(
+              crossAxisCount: 4,
+              mainAxisSpacing: 8,
+              crossAxisSpacing: 8,
+              childAspectRatio: childAspectRatio,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              children: [
+                _ActionTile(
+                  icon: Icons.add_task,
+                  label: '待办',
+                  accent: const Color(0xFFE94B78),
+                  onTap: () => onOpenTab(1),
+                ),
+                _ActionTile(
+                  icon: Icons.card_giftcard,
+                  label: '发券',
+                  accent: const Color(0xFFF19A48),
+                  onTap: () => onOpenTab(2),
+                ),
+                _ActionTile(
+                  icon: Icons.restaurant_menu,
+                  label: '吃啥',
+                  accent: const Color(0xFF249C98),
+                  onTap: () => onOpenTab(3),
+                ),
+                _ActionTile(
+                  icon: Icons.edit_note,
+                  label: '日志',
+                  accent: const Color(0xFF527FBD),
+                  onTap: () => onOpenTab(4),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -333,37 +472,61 @@ class _ActionTile extends StatelessWidget {
   const _ActionTile({
     required this.icon,
     required this.label,
+    required this.accent,
     required this.onTap,
   });
 
   final IconData icon;
   final String label;
+  final Color accent;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return InkWell(
-      borderRadius: BorderRadius.circular(8),
-      onTap: onTap,
-      child: Ink(
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: theme.colorScheme.primary),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelLarge,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: onTap,
+        child: Ink(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFF1DDE4)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x0F5B3342),
+                blurRadius: 12,
+                offset: Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: SizedBox(
+                    width: 36,
+                    height: 36,
+                    child: Icon(icon, color: accent, size: 21),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -401,24 +564,28 @@ class _MetricsGrid extends StatelessWidget {
               label: '未完成',
               value: openTodoCount.toString(),
               icon: Icons.checklist,
+              accent: const Color(0xFFE94B78),
             ),
             _MetricTile(
               width: width,
               label: '可用券',
               value: unusedCouponCount.toString(),
               icon: Icons.local_activity_outlined,
+              accent: const Color(0xFFF19A48),
             ),
             _MetricTile(
               width: width,
               label: '今日计划',
               value: todayPlanCount.toString(),
               icon: Icons.restaurant_outlined,
+              accent: const Color(0xFF249C98),
             ),
             _MetricTile(
               width: width,
               label: '今日照片',
               value: todayPhotoCount.toString(),
               icon: Icons.photo_library_outlined,
+              accent: const Color(0xFF527FBD),
             ),
           ],
         );
@@ -433,12 +600,14 @@ class _MetricTile extends StatelessWidget {
     required this.label,
     required this.value,
     required this.icon,
+    required this.accent,
   });
 
   final double width;
   final String label;
   final String value;
   final IconData icon;
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
@@ -448,14 +617,32 @@ class _MetricTile extends StatelessWidget {
       width: width,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          border: Border.all(color: theme.colorScheme.outlineVariant),
+          color: Colors.white,
+          border: Border.all(color: const Color(0xFFF1DDE4)),
           borderRadius: BorderRadius.circular(8),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0D5B3342),
+              blurRadius: 12,
+              offset: Offset(0, 5),
+            ),
+          ],
         ),
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Row(
             children: [
-              Icon(icon, color: theme.colorScheme.secondary),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: SizedBox(
+                  width: 34,
+                  height: 34,
+                  child: Icon(icon, color: accent, size: 20),
+                ),
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -504,6 +691,7 @@ class _NextAnniversarySection extends StatelessWidget {
 
     return _SectionShell(
       title: '最近纪念日',
+      icon: Icons.favorite_border,
       actionLabel: '查看',
       onAction: onOpenAnniversaries,
       child: anniversary == null
@@ -565,6 +753,7 @@ class _TodoPreviewSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return _SectionShell(
       title: '待完成小事',
+      icon: Icons.checklist,
       actionLabel: '打开',
       onAction: onOpenTodos,
       child: isLoading
@@ -605,6 +794,7 @@ class _JournalPreviewSection extends StatelessWidget {
 
     return _SectionShell(
       title: '最近日志',
+      icon: Icons.auto_stories_outlined,
       actionLabel: '记录',
       onAction: onOpenJournals,
       child: journal == null
@@ -637,12 +827,14 @@ class _JournalPreviewSection extends StatelessWidget {
 class _SectionShell extends StatelessWidget {
   const _SectionShell({
     required this.title,
+    required this.icon,
     required this.actionLabel,
     required this.onAction,
     required this.child,
   });
 
   final String title;
+  final IconData icon;
   final String actionLabel;
   final VoidCallback onAction;
   final Widget child;
@@ -654,8 +846,15 @@ class _SectionShell extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
-        border: Border.all(color: theme.colorScheme.outlineVariant),
+        border: Border.all(color: const Color(0xFFF1DDE4)),
         borderRadius: BorderRadius.circular(8),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F5B3342),
+            blurRadius: 14,
+            offset: Offset(0, 6),
+          ),
+        ],
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -664,6 +863,19 @@ class _SectionShell extends StatelessWidget {
           children: [
             Row(
               children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: SizedBox(
+                    width: 34,
+                    height: 34,
+                    child:
+                        Icon(icon, size: 19, color: theme.colorScheme.primary),
+                  ),
+                ),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     title,

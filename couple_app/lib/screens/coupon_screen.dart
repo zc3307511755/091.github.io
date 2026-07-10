@@ -20,54 +20,108 @@ class CouponScreen extends StatelessWidget {
     return DefaultTabController(
       length: 3,
       child: Scaffold(
+        backgroundColor: Colors.transparent,
         appBar: AppBar(
-          title: const Text('情侣券'),
+          toolbarHeight: 64,
+          title: Row(
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFE1EA),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const SizedBox(
+                  width: 36,
+                  height: 36,
+                  child: Icon(
+                    Icons.confirmation_num_outlined,
+                    color: Color(0xFFE94B78),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('情侣券', style: Theme.of(context).textTheme.titleLarge),
+                  Text(
+                    '把偏爱变成可以兑现的约定',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: const Color(0xFF8A7B86),
+                        ),
+                  ),
+                ],
+              ),
+            ],
+          ),
           actions: [
-            IconButton(
+            IconButton.filledTonal(
               tooltip: '刷新',
               onPressed: couple == null || provider.isLoading
                   ? null
                   : () => provider.loadCoupons(couple.id),
               icon: const Icon(Icons.refresh),
             ),
+            const SizedBox(width: 8),
           ],
-          bottom: const TabBar(
-            tabs: [
-              Tab(icon: Icon(Icons.local_activity_outlined), text: '我的券'),
-              Tab(icon: Icon(Icons.mark_email_unread_outlined), text: '请求'),
-              Tab(icon: Icon(Icons.card_giftcard), text: '生成'),
-            ],
+          bottom: const PreferredSize(
+            preferredSize: Size.fromHeight(52),
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12),
+              child: TabBar(
+                dividerColor: Colors.transparent,
+                indicatorSize: TabBarIndicatorSize.tab,
+                tabs: [
+                  Tab(icon: Icon(Icons.local_activity_outlined), text: '我的券'),
+                  Tab(icon: Icon(Icons.mark_email_unread_outlined), text: '请求'),
+                  Tab(icon: Icon(Icons.card_giftcard), text: '生成'),
+                ],
+              ),
+            ),
           ),
         ),
-        body: SafeArea(
-          child: Column(
-            children: [
-              if (provider.isLoading) const LinearProgressIndicator(),
-              if (provider.error != null)
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(
-                    provider.error!,
-                    style:
-                        TextStyle(color: Theme.of(context).colorScheme.error),
+        body: DecoratedBox(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFFFFFBFC), Color(0xFFFFF5F8), Color(0xFFF5FBFA)],
+            ),
+          ),
+          child: SafeArea(
+            top: false,
+            bottom: false,
+            child: Column(
+              children: [
+                if (provider.isLoading) const LinearProgressIndicator(),
+                if (provider.error != null)
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(
+                      provider.error!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ),
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      _CouponListTab(
+                        coupons: provider.items,
+                        currentUserId: currentUserId,
+                      ),
+                      _CouponRequestsTab(
+                        requests: provider.requests,
+                        currentUserId: currentUserId,
+                      ),
+                      _CouponCreateTab(currentUserId: currentUserId),
+                    ],
                   ),
                 ),
-              Expanded(
-                child: TabBarView(
-                  children: [
-                    _CouponListTab(
-                      coupons: provider.items,
-                      currentUserId: currentUserId,
-                    ),
-                    _CouponRequestsTab(
-                      requests: provider.requests,
-                      currentUserId: currentUserId,
-                    ),
-                    _CouponCreateTab(currentUserId: currentUserId),
-                  ],
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -95,7 +149,7 @@ class _CouponListTab extends StatelessWidget {
     }
 
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
       itemCount: coupons.length,
       separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
@@ -138,11 +192,12 @@ class _CouponCard extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0x66FFFFFF)),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x1AF17A9C),
-            blurRadius: 14,
-            offset: Offset(0, 8),
+            color: Color(0x245B3342),
+            blurRadius: 18,
+            offset: Offset(0, 9),
           ),
         ],
       ),
@@ -299,7 +354,7 @@ class _CouponRequestsTab extends StatelessWidget {
     }
 
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
       itemCount: requests.length,
       separatorBuilder: (_, __) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
@@ -329,7 +384,27 @@ class _RequestCard extends StatelessWidget {
     final canRespond = isApprover && request.isPending;
     final canApprove = canRespond && !request.isExpired;
 
-    return Card(
+    final accent = request.isExpired
+        ? const Color(0xFF8D8088)
+        : request.isPending
+            ? const Color(0xFFF19A48)
+            : request.isApproved
+                ? const Color(0xFF249C98)
+                : const Color(0xFFE94B78);
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: accent.withValues(alpha: 0.24)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F5B3342),
+            blurRadius: 14,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -337,15 +412,25 @@ class _RequestCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(
-                  request.isExpired
-                      ? Icons.timer_off_outlined
-                      : request.isPending
-                          ? Icons.hourglass_top
-                          : request.isApproved
-                              ? Icons.verified_outlined
-                              : Icons.block,
-                  color: theme.colorScheme.primary,
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.13),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: SizedBox(
+                    width: 38,
+                    height: 38,
+                    child: Icon(
+                      request.isExpired
+                          ? Icons.timer_off_outlined
+                          : request.isPending
+                              ? Icons.hourglass_top
+                              : request.isApproved
+                                  ? Icons.verified_outlined
+                                  : Icons.block,
+                      color: accent,
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -356,7 +441,11 @@ class _RequestCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                Chip(label: Text(_statusText(request))),
+                Chip(
+                  label: Text(_statusText(request)),
+                  backgroundColor: accent.withValues(alpha: 0.12),
+                  side: BorderSide.none,
+                ),
               ],
             ),
             const SizedBox(height: 8),
@@ -368,7 +457,7 @@ class _RequestCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(_expiryText(request)),
             if (canRespond) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -462,8 +551,48 @@ class _CouponCreateTabState extends State<_CouponCreateTab> {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
       children: [
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          child: DecoratedBox(
+            key: ValueKey(_mode),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: _mode == 'issue'
+                    ? const [Color(0xFFFFE3EC), Color(0xFFFFF2E8)]
+                    : const [Color(0xFFDDF5F0), Color(0xFFE9F4FF)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0x80FFFFFF)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Icon(
+                    _mode == 'issue'
+                        ? Icons.card_giftcard
+                        : Icons.volunteer_activism_outlined,
+                    color: _mode == 'issue'
+                        ? const Color(0xFFE94B78)
+                        : const Color(0xFF249C98),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      _mode == 'issue' ? '送一张只属于 TA 的券' : '向 TA 许一个小心愿',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
         SegmentedButton<String>(
           segments: const [
             ButtonSegment(
@@ -485,6 +614,8 @@ class _CouponCreateTabState extends State<_CouponCreateTab> {
           },
         ),
         const SizedBox(height: 16),
+        Text('挑一张心意', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 10),
         Wrap(
           spacing: 8,
           runSpacing: 8,

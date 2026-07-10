@@ -32,100 +32,137 @@ class ProfileScreen extends StatelessWidget {
         : null;
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(title: const Text('我的')),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: _EditableAvatar(
-                avatarPath: profile?.avatarUrl,
-                nickname: profile?.nickname,
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFFFFBFC), Color(0xFFFFF5F8), Color(0xFFF5FBFA)],
+          ),
+        ),
+        child: SafeArea(
+          top: false,
+          bottom: false,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 112),
+            children: [
+              _ProfileHero(
+                avatar: _EditableAvatar(
+                  avatarPath: profile?.avatarUrl,
+                  nickname: profile?.nickname,
+                  isLoading: auth.isLoading,
+                  onTap: auth.isLoading ? null : () => _pickAvatar(context),
+                ),
+                nickname: profile?.nickname ?? 'User',
+                email: user?.email ?? '',
                 isLoading: auth.isLoading,
-                onTap: auth.isLoading ? null : () => _pickAvatar(context),
+                onEditNickname: () => _editNickname(context),
               ),
-              title: Text(profile?.nickname ?? 'User'),
-              subtitle: Text(user?.email ?? ''),
-              trailing: IconButton(
-                tooltip: '修改名字',
-                onPressed: auth.isLoading ? null : () => _editNickname(context),
-                icon: const Icon(Icons.edit),
-              ),
-            ),
-            if (auth.isLoading) const LinearProgressIndicator(),
-            if (auth.error != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                _friendlyMessage(auth.error!),
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-            ],
-            const SizedBox(height: 16),
-            Card(
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.favorite_border),
-                    title: const Text('我们俩'),
-                    subtitle: Text(
-                        couple == null ? '未配对' : '已配对，关系 ID: ${couple.id}'),
-                  ),
-                  if (couple != null)
-                    ListTile(
-                      leading: const Icon(Icons.vpn_key_outlined),
-                      title: const Text('邀请码'),
-                      subtitle: Text(couple.inviteCode),
-                    ),
-                  if (couple != null)
-                    ListTile(
-                      leading: Icon(
-                        Icons.link_off,
-                        color: Theme.of(context).colorScheme.error,
-                      ),
-                      title: const Text('解除配对'),
-                      subtitle: const Text('解除后可以重新生成或输入邀请码'),
-                      enabled: !coupleProvider.isLoading,
-                      onTap: coupleProvider.isLoading
-                          ? null
-                          : () => _confirmLeaveCouple(context),
-                    ),
-                  if (coupleProvider.isLoading) const LinearProgressIndicator(),
-                ],
-              ),
-            ),
-            if (coupleProvider.error != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                coupleProvider.error!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-            ],
-            if (user != null && partnerId != null) ...[
+              if (auth.isLoading) const LinearProgressIndicator(),
+              if (auth.error != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  _friendlyMessage(auth.error!),
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ],
               const SizedBox(height: 16),
-              _PartnerProfileName(
-                partnerId: partnerId,
-                builder: (context, partnerName) {
-                  return _OnlineStatusCard(
-                    selfName: profile?.nickname ?? '我',
-                    partnerName: partnerName ?? '另一半',
-                    selfPresence: presence.presenceFor(user.id),
-                    partnerPresence: presence.presenceFor(partnerId),
-                    isLoading: presence.isLoading,
-                    error: presence.error,
-                  );
-                },
+              Text('我们的连接', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 10),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border.all(color: const Color(0xFFF1DDE4)),
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x0F5B3342),
+                      blurRadius: 14,
+                      offset: Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFE1EA),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const SizedBox(
+                          width: 36,
+                          height: 36,
+                          child: Icon(
+                            Icons.favorite_rounded,
+                            color: Color(0xFFE94B78),
+                          ),
+                        ),
+                      ),
+                      title: const Text('我们俩'),
+                      subtitle: Text(
+                        couple == null ? '还没有连接另一半' : '已经和 TA 连接在一起',
+                      ),
+                    ),
+                    if (couple != null)
+                      ListTile(
+                        leading: const Icon(Icons.vpn_key_outlined),
+                        title: const Text('邀请码'),
+                        subtitle: Text(couple.inviteCode),
+                      ),
+                    if (couple != null)
+                      ListTile(
+                        leading: Icon(
+                          Icons.link_off,
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                        title: const Text('解除配对'),
+                        subtitle: const Text('解除后可以重新生成或输入邀请码'),
+                        enabled: !coupleProvider.isLoading,
+                        onTap: coupleProvider.isLoading
+                            ? null
+                            : () => _confirmLeaveCouple(context),
+                      ),
+                    if (coupleProvider.isLoading)
+                      const LinearProgressIndicator(),
+                  ],
+                ),
+              ),
+              if (coupleProvider.error != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  coupleProvider.error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ],
+              if (user != null && partnerId != null) ...[
+                const SizedBox(height: 20),
+                _PartnerProfileName(
+                  partnerId: partnerId,
+                  builder: (context, partnerName) {
+                    return _OnlineStatusCard(
+                      selfName: profile?.nickname ?? '我',
+                      partnerName: partnerName ?? '另一半',
+                      selfPresence: presence.presenceFor(user.id),
+                      partnerPresence: presence.presenceFor(partnerId),
+                      isLoading: presence.isLoading,
+                      error: presence.error,
+                    );
+                  },
+                ),
+              ],
+              const SizedBox(height: 20),
+              const _UpdateTile(),
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: () => _signOut(context),
+                icon: const Icon(Icons.logout),
+                label: const Text('退出登录'),
               ),
             ],
-            const SizedBox(height: 16),
-            const _UpdateTile(),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: () => _signOut(context),
-              icon: const Icon(Icons.logout),
-              label: const Text('退出登录'),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -303,6 +340,80 @@ class ProfileScreen extends StatelessWidget {
   }
 }
 
+class _ProfileHero extends StatelessWidget {
+  const _ProfileHero({
+    required this.avatar,
+    required this.nickname,
+    required this.email,
+    required this.isLoading,
+    required this.onEditNickname,
+  });
+
+  final Widget avatar;
+  final String nickname;
+  final String email;
+  final bool isLoading;
+  final VoidCallback onEditNickname;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFFFE5ED), Color(0xFFE2F5F1)],
+        ),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0x99FFFFFF)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x1F5B3342),
+            blurRadius: 18,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            avatar,
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(nickname, style: Theme.of(context).textTheme.titleLarge),
+                  const SizedBox(height: 3),
+                  Text(
+                    email,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '在我们俩的小世界里',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          color: const Color(0xFF80606D),
+                        ),
+                  ),
+                ],
+              ),
+            ),
+            IconButton.filledTonal(
+              tooltip: '修改名字',
+              onPressed: isLoading ? null : onEditNickname,
+              icon: const Icon(Icons.edit_outlined),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _PartnerProfileName extends StatefulWidget {
   const _PartnerProfileName({
     required this.partnerId,
@@ -371,11 +482,26 @@ class _OnlineStatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: const Color(0xFFD5EEE9)),
+        borderRadius: BorderRadius.circular(8),
+      ),
       child: Column(
         children: [
           ListTile(
-            leading: const Icon(Icons.sensors),
+            leading: DecoratedBox(
+              decoration: BoxDecoration(
+                color: const Color(0xFFD7F3EF),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const SizedBox(
+                width: 36,
+                height: 36,
+                child: Icon(Icons.sensors, color: Color(0xFF249C98)),
+              ),
+            ),
             title: const Text('在线状态'),
             subtitle: const Text('根据最近活跃时间自动更新'),
             trailing: isLoading

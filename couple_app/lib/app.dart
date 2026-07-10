@@ -13,6 +13,7 @@ import 'providers/todo_provider.dart';
 import 'screens/auth/auth_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/pairing_screen.dart';
+import 'theme/app_theme.dart';
 
 class CoupleApp extends StatelessWidget {
   const CoupleApp({super.key});
@@ -22,27 +23,7 @@ class CoupleApp extends StatelessWidget {
     return MaterialApp(
       title: '我们俩',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFF17A9C),
-          brightness: Brightness.light,
-        ),
-        scaffoldBackgroundColor: const Color(0xFFFFF7FA),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFFFFF7FA),
-          foregroundColor: Color(0xFF4B3440),
-          centerTitle: true,
-        ),
-        cardTheme: CardThemeData(
-          color: Colors.white,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-            side: const BorderSide(color: Color(0xFFFFD6E4)),
-          ),
-        ),
-        useMaterial3: true,
-      ),
+      theme: AppTheme.light,
       home:
           SupabaseConfig.isConfigured ? const AppGate() : const ConfigScreen(),
     );
