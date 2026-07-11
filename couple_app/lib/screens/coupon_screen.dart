@@ -7,9 +7,17 @@ import '../models/coupon_request.dart';
 import '../providers/auth_provider.dart';
 import '../providers/couple_provider.dart';
 import '../providers/coupon_provider.dart';
+import '../widgets/stitch_ui.dart';
 
-class CouponScreen extends StatelessWidget {
+class CouponScreen extends StatefulWidget {
   const CouponScreen({super.key});
+
+  @override
+  State<CouponScreen> createState() => _CouponScreenState();
+}
+
+class _CouponScreenState extends State<CouponScreen> {
+  int _selectedIndex = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -17,158 +25,145 @@ class CouponScreen extends StatelessWidget {
     final currentUserId = context.watch<AuthProvider>().user?.id;
     final couple = context.watch<CoupleProvider>().current;
 
-    return DefaultTabController(
-      length: 3,
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          toolbarHeight: 64,
-          title: Row(
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: StitchPageFrame(
+        child: SafeArea(
+          bottom: false,
+          child: Stack(
             children: [
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFE1EA),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const SizedBox(
-                  width: 36,
-                  height: 36,
-                  child: Icon(
-                    Icons.confirmation_num_outlined,
-                    color: Color(0xFFE94B78),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
               Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('情侣券', style: Theme.of(context).textTheme.titleLarge),
-                  Text(
-                    '把偏爱变成可以兑现的约定',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: const Color(0xFF8A7B86),
-                        ),
+                  const StitchTopBar(
+                    avatarAsset: 'assets/stitch/coupon_avatar.jpg',
                   ),
-                ],
-              ),
-            ],
-          ),
-          actions: [
-            IconButton.filledTonal(
-              tooltip: '刷新',
-              onPressed: couple == null || provider.isLoading
-                  ? null
-                  : () => provider.loadCoupons(couple.id),
-              icon: const Icon(Icons.refresh),
-            ),
-            const SizedBox(width: 8),
-          ],
-          bottom: const PreferredSize(
-            preferredSize: Size.fromHeight(52),
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 12),
-              child: TabBar(
-                dividerColor: Colors.transparent,
-                indicatorSize: TabBarIndicatorSize.tab,
-                tabs: [
-                  Tab(icon: Icon(Icons.local_activity_outlined), text: '我的券'),
-                  Tab(icon: Icon(Icons.mark_email_unread_outlined), text: '请求'),
-                  Tab(icon: Icon(Icons.card_giftcard), text: '生成'),
-                ],
-              ),
-            ),
-          ),
-        ),
-        body: DecoratedBox(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFFFFFBFC), Color(0xFFFFF5F8), Color(0xFFF5FBFA)],
-            ),
-          ),
-          child: SafeArea(
-            top: false,
-            bottom: false,
-            child: Column(
-              children: [
-                if (provider.isLoading) const LinearProgressIndicator(),
-                if (provider.error != null)
                   Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(
-                      provider.error!,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
-                      ),
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+                    child: StitchSegmentedControl(
+                      labels: const ['我的券', '请求列表'],
+                      selectedIndex: _selectedIndex,
+                      onSelected: (index) {
+                        setState(() {
+                          _selectedIndex = index;
+                        });
+                      },
                     ),
                   ),
-                Expanded(
-                  child: TabBarView(
-                    children: [
-                      _CouponListTab(
-                        coupons: provider.items,
-                        currentUserId: currentUserId,
+                  if (provider.isLoading)
+                    const LinearProgressIndicator(minHeight: 2),
+                  if (provider.error != null)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                      child: Text(
+                        provider.error!,
+                        style: const TextStyle(color: StitchColors.red),
                       ),
-                      _CouponRequestsTab(
-                        requests: provider.requests,
-                        currentUserId: currentUserId,
-                      ),
-                      _CouponCreateTab(currentUserId: currentUserId),
-                    ],
+                    ),
+                  Expanded(
+                    child: IndexedStack(
+                      index: _selectedIndex,
+                      children: [
+                        _CouponList(
+                          coupons: provider.items,
+                          currentUserId: currentUserId,
+                          onRefresh: couple == null
+                              ? null
+                              : () => provider.loadCoupons(couple.id),
+                        ),
+                        _CouponRequestsList(
+                          requests: provider.requests,
+                          currentUserId: currentUserId,
+                          onRefresh: couple == null
+                              ? null
+                              : () => provider.loadCouponRequests(couple.id),
+                        ),
+                      ],
+                    ),
                   ),
+                ],
+              ),
+              Positioned(
+                right: 16,
+                bottom: 94,
+                child: FloatingActionButton(
+                  tooltip: '创建情侣券',
+                  onPressed: couple == null || currentUserId == null
+                      ? null
+                      : () => _openComposer(context, currentUserId),
+                  backgroundColor: StitchColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: const CircleBorder(),
+                  child: const Icon(Icons.add_rounded, size: 32),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
-}
 
-class _CouponListTab extends StatelessWidget {
-  const _CouponListTab({
-    required this.coupons,
-    required this.currentUserId,
-  });
-
-  final List<Coupon> coupons;
-  final String? currentUserId;
-
-  @override
-  Widget build(BuildContext context) {
-    if (coupons.isEmpty) {
-      return const _EmptyState(
-        icon: Icons.local_activity_outlined,
-        title: '还没有情侣券',
-        message: '去生成一张，或者向对方请求一张。',
-      );
-    }
-
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
-      itemCount: coupons.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        return AnimatedSwitcher(
-          duration: const Duration(milliseconds: 240),
-          child: _CouponCard(
-            key: ValueKey(coupons[index].id),
-            coupon: coupons[index],
-            currentUserId: currentUserId,
-          ),
-        );
-      },
+  Future<void> _openComposer(
+    BuildContext context,
+    String currentUserId,
+  ) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: StitchColors.page,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => FractionallySizedBox(
+        heightFactor: 0.90,
+        child: _CouponComposerSheet(currentUserId: currentUserId),
+      ),
     );
   }
 }
 
-class _CouponCard extends StatelessWidget {
-  const _CouponCard({
-    super.key,
+class _CouponList extends StatelessWidget {
+  const _CouponList({
+    required this.coupons,
+    required this.currentUserId,
+    required this.onRefresh,
+  });
+
+  final List<Coupon> coupons;
+  final String? currentUserId;
+  final Future<void> Function()? onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    if (coupons.isEmpty) {
+      return const StitchEmptyState(
+        icon: Icons.local_activity_outlined,
+        title: '还没有情侣券',
+        message: '点击右下角加号，送出一张券或向 TA 请求。',
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: onRefresh ?? () async {},
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 172),
+        itemCount: coupons.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (context, index) {
+          return _TicketCard(
+            coupon: coupons[index],
+            currentUserId: currentUserId,
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _TicketCard extends StatelessWidget {
+  const _TicketCard({
     required this.coupon,
     required this.currentUserId,
   });
@@ -178,123 +173,211 @@ class _CouponCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final isReceived = coupon.receiverId == currentUserId;
     final canUse = isReceived && coupon.canUse;
+    final disabled = coupon.isUsed || coupon.isExpired;
+    final foreground =
+        disabled ? const Color(0xFF9B8D91) : StitchColors.primary;
+    final background =
+        disabled ? StitchColors.surfaceLow : const Color(0xFFFFEDF1);
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: coupon.isExpired
-              ? const [Color(0xFFEDE7EA), Color(0xFFF7F4F5)]
-              : const [Color(0xFFFFD6E4), Color(0xFFE4F5FF)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0x66FFFFFF)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x245B3342),
-            blurRadius: 18,
-            offset: Offset(0, 9),
+    return Semantics(
+      button: canUse,
+      label: canUse ? '使用${coupon.title}' : coupon.title,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: canUse ? () => _confirmUse(context) : null,
+          borderRadius: BorderRadius.circular(14),
+          child: SizedBox(
+            height: 132,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: ColoredBox(
+                    color: background,
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 86,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                _iconForCoupon(coupon.title),
+                                color: foreground,
+                                size: 34,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                _statusLabel(coupon),
+                                style: TextStyle(
+                                  color: foreground,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(
+                          width: 1,
+                          height: 106,
+                          child: CustomPaint(
+                            painter: _DashedLinePainter(
+                              color: disabled
+                                  ? const Color(0xFFD5CFD2)
+                                  : const Color(0xFFE6CBD2),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 16, 14, 14),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        coupon.title,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: disabled
+                                              ? const Color(0xFF8D8085)
+                                              : const Color(0xFF4A0011),
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: 0,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      _expiryLabel(coupon),
+                                      style: TextStyle(
+                                        color: foreground.withValues(
+                                          alpha: disabled ? 0.8 : 0.72,
+                                        ),
+                                        fontSize: 12,
+                                        letterSpacing: 0,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 9),
+                                Text(
+                                  coupon.description?.trim().isNotEmpty == true
+                                      ? coupon.description!.trim()
+                                      : isReceived
+                                          ? '这是一份只属于你的偏爱。'
+                                          : '已送给 TA，等待幸福兑现。',
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: disabled
+                                        ? const Color(0xFFA4959A)
+                                        : StitchColors.primary,
+                                    fontSize: 14,
+                                    height: 1.4,
+                                    letterSpacing: 0,
+                                  ),
+                                ),
+                                const Spacer(),
+                                Text(
+                                  canUse
+                                      ? '轻触使用'
+                                      : isReceived
+                                          ? '我收到的'
+                                          : '我发出的',
+                                  style: TextStyle(
+                                    color: foreground,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 0,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                ..._notches(background: StitchColors.page),
+              ],
+            ),
           ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.72),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.favorite, color: Color(0xFFF17A9C)),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        coupon.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          color: const Color(0xFF4B3440),
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      Text(
-                        isReceived ? '我收到的' : '我发出的',
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: const Color(0xFF6F5965),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                _StatusChip(coupon: coupon),
-              ],
-            ),
-            if (coupon.description?.isNotEmpty == true) ...[
-              const SizedBox(height: 14),
-              Text(coupon.description!),
-            ],
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Icon(
-                  Icons.event_available_outlined,
-                  size: 18,
-                  color: theme.colorScheme.secondary,
-                ),
-                const SizedBox(width: 6),
-                Expanded(child: Text(_expiryText(coupon))),
-                FilledButton.tonalIcon(
-                  onPressed: canUse ? () => _confirmUse(context) : null,
-                  icon: const Icon(Icons.redeem),
-                  label: const Text('使用'),
-                ),
-              ],
-            ),
-          ],
         ),
       ),
     );
   }
 
-  String _expiryText(Coupon coupon) {
-    final expiresAt = coupon.expiresAt;
+  List<Widget> _notches({required Color background}) {
+    const size = 18.0;
+    return [
+      Positioned(left: 77, top: -size / 2, child: _Notch(size, background)),
+      Positioned(left: 77, bottom: -size / 2, child: _Notch(size, background)),
+      Positioned(left: -size / 2, top: 57, child: _Notch(size, background)),
+      Positioned(right: -size / 2, top: 57, child: _Notch(size, background)),
+    ];
+  }
+
+  IconData _iconForCoupon(String title) {
+    if (title.contains('按摩') || title.contains('抱抱')) {
+      return Icons.spa_outlined;
+    }
+    if (title.contains('碗') || title.contains('饭') || title.contains('餐')) {
+      return Icons.restaurant_rounded;
+    }
+    if (title.contains('电影')) {
+      return Icons.movie_outlined;
+    }
+    return Icons.card_giftcard_rounded;
+  }
+
+  String _statusLabel(Coupon coupon) {
     if (coupon.isExpired) {
       return '已过期';
     }
-    if (expiresAt == null) {
-      return '长期有效';
+    if (coupon.isUsed) {
+      return '已使用';
     }
-    return '有效期至 ${DateFormat('yyyy-MM-dd').format(expiresAt)}';
+    return '未使用';
+  }
+
+  String _expiryLabel(Coupon coupon) {
+    if (coupon.isExpired) {
+      return '已过期';
+    }
+    final expiresAt = coupon.expiresAt;
+    if (expiresAt == null) {
+      return '永久有效';
+    }
+    return '至 ${DateFormat('MM.dd').format(expiresAt)}';
   }
 
   Future<void> _confirmUse(BuildContext context) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
           title: const Text('使用这张券？'),
           content: Text('确认使用「${coupon.title}」后，对方会看到它已被使用。'),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
+              onPressed: () => Navigator.of(dialogContext).pop(false),
               child: const Text('取消'),
             ),
             FilledButton.icon(
-              onPressed: () => Navigator.of(context).pop(true),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
               icon: const Icon(Icons.favorite),
               label: const Text('确认使用'),
             ),
@@ -314,55 +397,82 @@ class _CouponCard extends StatelessWidget {
   }
 }
 
-class _StatusChip extends StatelessWidget {
-  const _StatusChip({required this.coupon});
+class _Notch extends StatelessWidget {
+  const _Notch(this.size, this.color);
 
-  final Coupon coupon;
+  final double size;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    final label = coupon.isExpired
-        ? '已过期'
-        : coupon.isUsed
-            ? '已使用'
-            : '未使用';
-    return Chip(
-      label: Text(label),
-      visualDensity: VisualDensity.compact,
-      backgroundColor: Colors.white.withValues(alpha: 0.74),
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
     );
   }
 }
 
-class _CouponRequestsTab extends StatelessWidget {
-  const _CouponRequestsTab({
+class _DashedLinePainter extends CustomPainter {
+  const _DashedLinePainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 2;
+    const dash = 5.0;
+    const gap = 5.0;
+    var y = 0.0;
+    while (y < size.height) {
+      final endY = (y + dash).clamp(0.0, size.height).toDouble();
+      canvas.drawLine(Offset(0, y), Offset(0, endY), paint);
+      y += dash + gap;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashedLinePainter oldDelegate) {
+    return oldDelegate.color != color;
+  }
+}
+
+class _CouponRequestsList extends StatelessWidget {
+  const _CouponRequestsList({
     required this.requests,
     required this.currentUserId,
+    required this.onRefresh,
   });
 
   final List<CouponRequest> requests;
   final String? currentUserId;
+  final Future<void> Function()? onRefresh;
 
   @override
   Widget build(BuildContext context) {
     if (requests.isEmpty) {
-      return const _EmptyState(
+      return const StitchEmptyState(
         icon: Icons.mark_email_unread_outlined,
         title: '还没有请求',
-        message: '你可以向对方请求一张券，也可以在这里处理对方的请求。',
+        message: '对方发来的请求和你的请求记录会显示在这里。',
       );
     }
 
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
-      itemCount: requests.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
-      itemBuilder: (context, index) {
-        return _RequestCard(
-          request: requests[index],
-          currentUserId: currentUserId,
-        );
-      },
+    return RefreshIndicator(
+      onRefresh: onRefresh ?? () async {},
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 172),
+        itemCount: requests.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        itemBuilder: (context, index) {
+          return _RequestCard(
+            request: requests[index],
+            currentUserId: currentUserId,
+          );
+        },
+      ),
     );
   }
 }
@@ -378,112 +488,119 @@ class _RequestCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final isApprover = request.approverId == currentUserId;
-    final isMine = request.requesterId == currentUserId;
     final canRespond = isApprover && request.isPending;
-    final canApprove = canRespond && !request.isExpired;
-
     final accent = request.isExpired
-        ? const Color(0xFF8D8088)
-        : request.isPending
-            ? const Color(0xFFF19A48)
-            : request.isApproved
-                ? const Color(0xFF249C98)
-                : const Color(0xFFE94B78);
+        ? const Color(0xFF8D8085)
+        : request.isApproved
+            ? StitchColors.green
+            : request.isRejected
+                ? StitchColors.red
+                : StitchColors.primary;
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: accent.withValues(alpha: 0.24)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0F5B3342),
-            blurRadius: 14,
-            offset: Offset(0, 6),
+    return StitchGroupCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.10),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.volunteer_activism_outlined, color: accent),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      request.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: StitchColors.ink,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      request.requesterId == currentUserId
+                          ? '我发起的请求'
+                          : 'TA 向我请求',
+                      style: const TextStyle(
+                        color: StitchColors.muted,
+                        fontSize: 12,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  _statusLabel(),
+                  style: TextStyle(
+                    color: accent,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+          if (request.description?.trim().isNotEmpty == true) ...[
+            const SizedBox(height: 12),
+            Text(request.description!.trim()),
+          ],
+          const SizedBox(height: 10),
+          Text(
+            _expiryLabel(),
+            style: const TextStyle(
+              color: StitchColors.muted,
+              fontSize: 12,
+              letterSpacing: 0,
+            ),
+          ),
+          if (canRespond) ...[
+            const SizedBox(height: 14),
             Row(
+              mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: accent.withValues(alpha: 0.13),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: SizedBox(
-                    width: 38,
-                    height: 38,
-                    child: Icon(
-                      request.isExpired
-                          ? Icons.timer_off_outlined
-                          : request.isPending
-                              ? Icons.hourglass_top
-                              : request.isApproved
-                                  ? Icons.verified_outlined
-                                  : Icons.block,
-                      color: accent,
-                    ),
-                  ),
+                TextButton(
+                  onPressed: () => _respond(context, approve: false),
+                  child: const Text('拒绝'),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    request.title,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-                Chip(
-                  label: Text(_statusText(request)),
-                  backgroundColor: accent.withValues(alpha: 0.12),
-                  side: BorderSide.none,
+                const SizedBox(width: 8),
+                FilledButton(
+                  onPressed: request.isExpired
+                      ? null
+                      : () => _respond(context, approve: true),
+                  child: const Text('同意'),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            Text(isMine ? '我发起的请求' : '对方向我请求'),
-            if (request.description?.isNotEmpty == true) ...[
-              const SizedBox(height: 8),
-              Text(request.description!),
-            ],
-            const SizedBox(height: 8),
-            Text(_expiryText(request)),
-            if (canRespond) ...[
-              const SizedBox(height: 14),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton.icon(
-                    onPressed: () => _respond(context, approve: false),
-                    icon: const Icon(Icons.close),
-                    label: const Text('拒绝'),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton.icon(
-                    onPressed: canApprove
-                        ? () => _respond(context, approve: true)
-                        : null,
-                    icon: const Icon(Icons.check),
-                    label: const Text('同意'),
-                  ),
-                ],
-              ),
-            ],
           ],
-        ),
+        ],
       ),
     );
   }
 
-  String _statusText(CouponRequest request) {
+  String _statusLabel() {
     if (request.isExpired) {
       return '已过期';
     }
@@ -496,21 +613,18 @@ class _RequestCard extends StatelessWidget {
     return '等待中';
   }
 
-  String _expiryText(CouponRequest request) {
+  String _expiryLabel() {
     final expiresAt = request.expiresAt;
     if (request.isExpired) {
       return '期望有效期已过';
     }
     if (expiresAt == null) {
-      return '期望有效期：长期有效';
+      return '期望有效期：永久有效';
     }
     return '期望有效期至 ${DateFormat('yyyy-MM-dd').format(expiresAt)}';
   }
 
-  Future<void> _respond(
-    BuildContext context, {
-    required bool approve,
-  }) async {
+  Future<void> _respond(BuildContext context, {required bool approve}) async {
     await context.read<CouponProvider>().respondToRequest(
           request,
           approve: approve,
@@ -523,22 +637,22 @@ class _RequestCard extends StatelessWidget {
   }
 }
 
-class _CouponCreateTab extends StatefulWidget {
-  const _CouponCreateTab({required this.currentUserId});
+class _CouponComposerSheet extends StatefulWidget {
+  const _CouponComposerSheet({required this.currentUserId});
 
-  final String? currentUserId;
+  final String currentUserId;
 
   @override
-  State<_CouponCreateTab> createState() => _CouponCreateTabState();
+  State<_CouponComposerSheet> createState() => _CouponComposerSheetState();
 }
 
-class _CouponCreateTabState extends State<_CouponCreateTab> {
-  static const _presets = ['抱抱券', '亲亲券', '陪伴券', '和好券', '免家务券', '约会券'];
+class _CouponComposerSheetState extends State<_CouponComposerSheet> {
+  static const _presets = ['抱抱券', '按摩券', '免洗碗券', '电影选择权', '陪伴券', '约会券'];
 
   final TextEditingController _titleController =
       TextEditingController(text: _presets.first);
   final TextEditingController _descriptionController = TextEditingController();
-  String _mode = 'issue';
+  int _modeIndex = 0;
   DateTime? _expiresAt;
 
   @override
@@ -550,121 +664,127 @@ class _CouponCreateTabState extends State<_CouponCreateTab> {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
+    final provider = context.watch<CouponProvider>();
+
+    return Column(
       children: [
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 220),
-          child: DecoratedBox(
-            key: ValueKey(_mode),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: _mode == 'issue'
-                    ? const [Color(0xFFFFE3EC), Color(0xFFFFF2E8)]
-                    : const [Color(0xFFDDF5F0), Color(0xFFE9F4FF)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0x80FFFFFF)),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Icon(
-                    _mode == 'issue'
-                        ? Icons.card_giftcard
-                        : Icons.volunteer_activism_outlined,
-                    color: _mode == 'issue'
-                        ? const Color(0xFFE94B78)
-                        : const Color(0xFF249C98),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      _mode == 'issue' ? '送一张只属于 TA 的券' : '向 TA 许一个小心愿',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        SegmentedButton<String>(
-          segments: const [
-            ButtonSegment(
-              value: 'issue',
-              label: Text('送给 TA'),
-              icon: Icon(Icons.send_outlined),
-            ),
-            ButtonSegment(
-              value: 'request',
-              label: Text('向 TA 请求'),
-              icon: Icon(Icons.volunteer_activism_outlined),
-            ),
-          ],
-          selected: {_mode},
-          onSelectionChanged: (values) {
-            setState(() {
-              _mode = values.first;
-            });
-          },
-        ),
-        const SizedBox(height: 16),
-        Text('挑一张心意', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 10),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: _presets.map((preset) {
-            return ChoiceChip(
-              label: Text(preset),
-              selected: _titleController.text == preset,
-              onSelected: (_) {
-                setState(() {
-                  _titleController.text = preset;
-                });
-              },
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 16),
-        TextField(
-          controller: _titleController,
-          decoration: const InputDecoration(
-            labelText: '券名称',
-            prefixIcon: Icon(Icons.local_activity_outlined),
-            border: OutlineInputBorder(),
+        Container(
+          width: 38,
+          height: 5,
+          decoration: BoxDecoration(
+            color: const Color(0xFFD1CDD2),
+            borderRadius: BorderRadius.circular(3),
           ),
         ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _descriptionController,
-          maxLines: 3,
-          decoration: const InputDecoration(
-            labelText: '备注',
-            prefixIcon: Icon(Icons.notes),
-            alignLabelWithHint: true,
-            border: OutlineInputBorder(),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 14, 12, 8),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  '创建情侣券',
+                  style: TextStyle(
+                    color: StitchColors.ink,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ),
+              IconButton(
+                tooltip: '关闭',
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.close_rounded),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 12),
-        _ExpirySelector(
-          expiresAt: _expiresAt,
-          onChanged: (value) {
-            setState(() {
-              _expiresAt = value;
-            });
-          },
-        ),
-        const SizedBox(height: 18),
-        FilledButton.icon(
-          onPressed: _submit,
-          icon: Icon(_mode == 'issue' ? Icons.card_giftcard : Icons.send),
-          label: Text(_mode == 'issue' ? '生成并发送' : '发送请求'),
+        Expanded(
+          child: ListView(
+            padding: EdgeInsets.fromLTRB(
+              20,
+              8,
+              20,
+              MediaQuery.viewInsetsOf(context).bottom + 24,
+            ),
+            children: [
+              StitchSegmentedControl(
+                labels: const ['送给 TA', '向 TA 请求'],
+                selectedIndex: _modeIndex,
+                onSelected: (index) {
+                  setState(() {
+                    _modeIndex = index;
+                  });
+                },
+              ),
+              const SizedBox(height: 22),
+              const Text(
+                '选择一种心意',
+                style: TextStyle(
+                  color: StitchColors.ink,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _presets.map((preset) {
+                  return ChoiceChip(
+                    label: Text(preset),
+                    selected: _titleController.text == preset,
+                    onSelected: (_) {
+                      setState(() {
+                        _titleController.text = preset;
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 18),
+              TextField(
+                controller: _titleController,
+                maxLength: 30,
+                decoration: const InputDecoration(
+                  labelText: '券名称',
+                  prefixIcon: Icon(Icons.local_activity_outlined),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _descriptionController,
+                maxLines: 3,
+                maxLength: 120,
+                decoration: const InputDecoration(
+                  labelText: '使用说明',
+                  prefixIcon: Icon(Icons.notes_rounded),
+                  alignLabelWithHint: true,
+                ),
+              ),
+              const SizedBox(height: 12),
+              _ExpirySelector(
+                expiresAt: _expiresAt,
+                onChanged: (value) {
+                  setState(() {
+                    _expiresAt = value;
+                  });
+                },
+              ),
+              const SizedBox(height: 22),
+              FilledButton.icon(
+                onPressed: provider.isLoading ? null : _submit,
+                icon: Icon(
+                  _modeIndex == 0
+                      ? Icons.card_giftcard_rounded
+                      : Icons.send_rounded,
+                ),
+                label: Text(_modeIndex == 0 ? '生成并发送' : '发送请求'),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -672,18 +792,18 @@ class _CouponCreateTabState extends State<_CouponCreateTab> {
 
   Future<void> _submit() async {
     final couple = context.read<CoupleProvider>().current;
-    final currentUserId = widget.currentUserId;
-    if (couple == null || currentUserId == null) {
+    final title = _titleController.text.trim();
+    if (couple == null || title.isEmpty) {
       return;
     }
 
-    final partnerId = couple.partnerId(currentUserId);
+    final partnerId = couple.partnerId(widget.currentUserId);
     final provider = context.read<CouponProvider>();
-    if (_mode == 'issue') {
+    if (_modeIndex == 0) {
       await provider.issueCoupon(
         coupleId: couple.id,
         receiverId: partnerId,
-        title: _titleController.text,
+        title: title,
         description: _descriptionController.text,
         expiresAt: _expiresAt,
       );
@@ -691,19 +811,19 @@ class _CouponCreateTabState extends State<_CouponCreateTab> {
       await provider.requestCoupon(
         coupleId: couple.id,
         approverId: partnerId,
-        title: _titleController.text,
+        title: title,
         description: _descriptionController.text,
         expiresAt: _expiresAt,
       );
     }
 
-    if (!mounted) {
+    if (!mounted || provider.error != null) {
       return;
     }
+    Navigator.of(context).pop();
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(_mode == 'issue' ? '情侣券已生成' : '请求已发送')),
+      SnackBar(content: Text(_modeIndex == 0 ? '情侣券已生成' : '请求已发送')),
     );
-    _descriptionController.clear();
   }
 }
 
@@ -718,38 +838,58 @@ class _ExpirySelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      crossAxisAlignment: WrapCrossAlignment.center,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ChoiceChip(
-          label: const Text('长期有效'),
-          selected: expiresAt == null,
-          onSelected: (_) => onChanged(null),
-        ),
-        ChoiceChip(
-          label: const Text('7天'),
-          selected: _isSameDay(
-              expiresAt, DateTime.now().add(const Duration(days: 7))),
-          onSelected: (_) =>
-              onChanged(DateTime.now().add(const Duration(days: 7))),
-        ),
-        ChoiceChip(
-          label: const Text('30天'),
-          selected: _isSameDay(
-              expiresAt, DateTime.now().add(const Duration(days: 30))),
-          onSelected: (_) =>
-              onChanged(DateTime.now().add(const Duration(days: 30))),
-        ),
-        OutlinedButton.icon(
-          onPressed: () => _pickDate(context),
-          icon: const Icon(Icons.edit_calendar_outlined),
-          label: Text(
-            expiresAt == null
-                ? '自定义日期'
-                : DateFormat('yyyy-MM-dd').format(expiresAt!),
+        const Text(
+          '有效期',
+          style: TextStyle(
+            color: StitchColors.ink,
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0,
           ),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            ChoiceChip(
+              label: const Text('永久有效'),
+              selected: expiresAt == null,
+              onSelected: (_) => onChanged(null),
+            ),
+            ChoiceChip(
+              label: const Text('7 天'),
+              selected: _isSameDay(
+                expiresAt,
+                DateTime.now().add(const Duration(days: 7)),
+              ),
+              onSelected: (_) {
+                onChanged(DateTime.now().add(const Duration(days: 7)));
+              },
+            ),
+            ChoiceChip(
+              label: const Text('30 天'),
+              selected: _isSameDay(
+                expiresAt,
+                DateTime.now().add(const Duration(days: 30)),
+              ),
+              onSelected: (_) {
+                onChanged(DateTime.now().add(const Duration(days: 30)));
+              },
+            ),
+            OutlinedButton.icon(
+              onPressed: () => _pickDate(context),
+              icon: const Icon(Icons.edit_calendar_outlined),
+              label: Text(
+                expiresAt == null
+                    ? '自定义'
+                    : DateFormat('yyyy-MM-dd').format(expiresAt!),
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -769,41 +909,9 @@ class _ExpirySelector extends StatelessWidget {
   }
 
   bool _isSameDay(DateTime? a, DateTime b) {
-    if (a == null) {
-      return false;
-    }
-    return a.year == b.year && a.month == b.month && a.day == b.day;
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({
-    required this.icon,
-    required this.title,
-    required this.message,
-  });
-
-  final IconData icon;
-  final String title;
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 56, color: theme.colorScheme.primary),
-            const SizedBox(height: 12),
-            Text(title, style: theme.textTheme.titleMedium),
-            const SizedBox(height: 6),
-            Text(message, textAlign: TextAlign.center),
-          ],
-        ),
-      ),
-    );
+    return a != null &&
+        a.year == b.year &&
+        a.month == b.month &&
+        a.day == b.day;
   }
 }

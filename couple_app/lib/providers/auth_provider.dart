@@ -5,21 +5,25 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/profile.dart';
 import '../services/auth_service.dart';
+import '../services/home_image_service.dart';
 import '../services/profile_service.dart';
 
 class AuthProvider extends ChangeNotifier {
   final AuthService _authService = AuthService();
+  final HomeImageService _homeImageService = HomeImageService();
   final ProfileService _profileService = ProfileService();
 
   StreamSubscription<AuthState>? _subscription;
   User? _user;
   Profile? _profile;
   bool _isLoading = true;
+  bool _isUpdatingHomeImage = false;
   String? _error;
 
   User? get user => _user;
   Profile? get profile => _profile;
   bool get isLoading => _isLoading;
+  bool get isUpdatingHomeImage => _isUpdatingHomeImage;
   String? get error => _error;
 
   void bootstrap() {
@@ -113,6 +117,47 @@ class AuthProvider extends ChangeNotifier {
 
   Future<String> signedAvatarUrl(String avatarPath) {
     return _profileService.signedAvatarUrl(avatarPath);
+  }
+
+  String? homeImagePath(HomeImageSlot slot) {
+    final currentUser = _user;
+    return currentUser == null
+        ? null
+        : _homeImageService.imagePath(currentUser, slot);
+  }
+
+  Future<String> signedHomeImageUrl(String imagePath) {
+    return _homeImageService.signedUrl(imagePath);
+  }
+
+  Future<void> updateHomeImage({
+    required HomeImageSlot slot,
+    required Uint8List imageBytes,
+    required String fileExtension,
+  }) async {
+    final currentUser = _user;
+    if (currentUser == null) {
+      throw Exception('请先登录后再修改首页图片。');
+    }
+
+    _isUpdatingHomeImage = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      _user = await _homeImageService.updateImage(
+        user: currentUser,
+        slot: slot,
+        imageBytes: imageBytes,
+        fileExtension: fileExtension,
+      );
+    } catch (error) {
+      _error = error.toString();
+      rethrow;
+    } finally {
+      _isUpdatingHomeImage = false;
+      notifyListeners();
+    }
   }
 
   void clearError() {

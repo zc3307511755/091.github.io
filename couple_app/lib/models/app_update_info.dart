@@ -114,9 +114,35 @@ class AppUpdateStatus {
   final int currentBuildNumber;
   final AppUpdateInfo info;
 
-  bool get hasUpdate => info.hasUpdateFor(currentBuildNumber);
+  bool get hasUpdate {
+    return info.hasUpdateFor(currentBuildNumber) ||
+        _compareVersions(info.latestVersion, currentVersion) > 0;
+  }
+
   bool get requiresUpdate => info.requiresUpdateFor(currentBuildNumber);
 
   String get currentLabel => '$currentVersion+$currentBuildNumber';
-  String get latestLabel => '${info.latestVersion}+${info.latestBuildNumber}';
+  String get latestLabel =>
+      '${info.latestVersion}+${info.latestBaseBuildNumber ?? info.latestBuildNumber}';
+
+  static int _compareVersions(String left, String right) {
+    final leftParts = left.split('.').map(_versionPart).toList();
+    final rightParts = right.split('.').map(_versionPart).toList();
+    final length = leftParts.length > rightParts.length
+        ? leftParts.length
+        : rightParts.length;
+    for (var index = 0; index < length; index++) {
+      final leftValue = index < leftParts.length ? leftParts[index] : 0;
+      final rightValue = index < rightParts.length ? rightParts[index] : 0;
+      if (leftValue != rightValue) {
+        return leftValue.compareTo(rightValue);
+      }
+    }
+    return 0;
+  }
+
+  static int _versionPart(String value) {
+    final match = RegExp(r'^\d+').firstMatch(value.trim());
+    return int.tryParse(match?.group(0) ?? '') ?? 0;
+  }
 }

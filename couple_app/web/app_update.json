@@ -1,14 +1,14 @@
 {
-  "latest_version": "0.2.5",
-  "latest_build_number": 2007,
-  "latest_base_build_number": 7,
+  "latest_version": "0.2.6",
+  "latest_build_number": 2008,
+  "latest_base_build_number": 8,
   "minimum_build_number": 1,
-  "download_url": "https://zc3307511755.github.io/091.github.io/downloads/womenlia-0.2.5-build7-arm64-v8a.apk",
+  "download_url": "https://zc3307511755.github.io/091.github.io/downloads/womenlia-0.2.6-build8-arm64-v8a.apk",
   "download_page_url": "https://zc3307511755.github.io/091.github.io/downloads/",
-  "published_at": "2026-07-08",
+  "published_at": "2026-07-11",
   "release_notes": [
-    "新增用户名字修改功能。",
-    "新增情侣双方在线状态与最近在线时间。",
-    "优化我的页面资料展示。"
+    "首页封面与两张回忆图片支持自定义。",
+    "更新首页、待办、情侣券和我的页面视觉效果。",
+    "修复安卓版本检测缓存与版本号判断问题。"
   ]
 }
