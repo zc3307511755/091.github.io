@@ -1,14 +1,14 @@
 {
-  "latest_version": "0.2.6",
-  "latest_build_number": 2008,
-  "latest_base_build_number": 8,
+  "latest_version": "0.2.7",
+  "latest_build_number": 2009,
+  "latest_base_build_number": 9,
   "minimum_build_number": 1,
-  "download_url": "https://zc3307511755.github.io/091.github.io/downloads/womenlia-0.2.6-build8-arm64-v8a.apk",
+  "download_url": "https://zc3307511755.github.io/091.github.io/downloads/womenlia-0.2.7-build9-arm64-v8a.apk",
   "download_page_url": "https://zc3307511755.github.io/091.github.io/downloads/",
-  "published_at": "2026-07-11",
+  "published_at": "2026-07-12",
   "release_notes": [
-    "首页封面与两张回忆图片支持自定义。",
-    "更新首页、待办、情侣券和我的页面视觉效果。",
-    "修复安卓版本检测缓存与版本号判断问题。"
+    "新增餐食照片评论区，支持情侣双方实时评论和本人删除。",
+    "新增“我们俩”品牌启动动画，并优化安卓与 Web 启动画面。",
+    "完善评论权限、空状态、发送状态和数据库兼容提示。"
   ]
 }

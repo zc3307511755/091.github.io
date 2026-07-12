@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/meal_entry.dart';
+import '../models/meal_comment.dart';
 import '../models/meal_plan.dart';
 import 'supabase_service.dart';
 
@@ -35,6 +36,37 @@ class MealService {
     return data.map((item) => MealPlan.fromMap(item)).toList();
   }
 
+  Future<List<MealComment>> loadComments(List<String> mealEntryIds) async {
+    if (mealEntryIds.isEmpty) {
+      return const [];
+    }
+
+    final data = await SupabaseService.client
+        .from('meal_comments')
+        .select()
+        .inFilter('meal_entry_id', mealEntryIds)
+        .order('created_at');
+    final comments = data.map((item) => MealComment.fromMap(item)).toList();
+    final authorIds =
+        comments.map((comment) => comment.authorId).toSet().toList();
+
+    if (authorIds.isEmpty) {
+      return comments;
+    }
+
+    final profileRows = await SupabaseService.client
+        .from('profiles')
+        .select('id, nickname, avatar_url')
+        .inFilter('id', authorIds);
+    final profiles = {
+      for (final row in profileRows) row['id'] as String: row,
+    };
+
+    return comments
+        .map((comment) => comment.withAuthorProfile(profiles[comment.authorId]))
+        .toList();
+  }
+
   RealtimeChannel subscribeEntries(String coupleId, void Function() onChange) {
     return SupabaseService.client
         .channel('meal_entries:$coupleId')
@@ -59,6 +91,26 @@ class MealService {
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'meal_plans',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'couple_id',
+            value: coupleId,
+          ),
+          callback: (_) => onChange(),
+        )
+        .subscribe();
+  }
+
+  RealtimeChannel subscribeComments(
+    String coupleId,
+    void Function() onChange,
+  ) {
+    return SupabaseService.client
+        .channel('meal_comments:$coupleId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'meal_comments',
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,
             column: 'couple_id',
@@ -110,8 +162,34 @@ class MealService {
   }
 
   Future<void> deleteEntry(MealEntry entry) async {
-    await SupabaseService.client.from('meal_entries').delete().eq('id', entry.id);
-    await SupabaseService.client.storage.from('meals').remove([entry.photoPath]);
+    await SupabaseService.client
+        .from('meal_entries')
+        .delete()
+        .eq('id', entry.id);
+    await SupabaseService.client.storage
+        .from('meals')
+        .remove([entry.photoPath]);
+  }
+
+  Future<void> addComment({
+    required String mealEntryId,
+    required String coupleId,
+    required String authorId,
+    required String content,
+  }) async {
+    await SupabaseService.client.from('meal_comments').insert({
+      'meal_entry_id': mealEntryId,
+      'couple_id': coupleId,
+      'author_id': authorId,
+      'content': content,
+    });
+  }
+
+  Future<void> deleteComment(String commentId) async {
+    await SupabaseService.client
+        .from('meal_comments')
+        .delete()
+        .eq('id', commentId);
   }
 
   Future<void> addPlan({

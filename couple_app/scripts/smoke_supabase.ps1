@@ -242,6 +242,17 @@ $mealEntry = @(Invoke-SupaJson "Post" "/rest/v1/meal_entries?select=*" $tokenA @
   } "return=representation")[0]
 Add-Check "meal_entry_insert_A" (-not [string]::IsNullOrWhiteSpace($mealEntry.id)) $mealEntry.id
 
+$mealComment = @(Invoke-SupaJson "Post" "/rest/v1/meal_comments?select=*" $tokenB @{
+    meal_entry_id = $mealEntry.id
+    couple_id = $coupleId
+    content = "Codex smoke meal comment $stamp"
+  } "return=representation")[0]
+Add-Check "meal_comment_insert_B" (-not [string]::IsNullOrWhiteSpace($mealComment.id)) $mealComment.id
+$commentsForA = Invoke-SupaJson "Get" "/rest/v1/meal_comments?meal_entry_id=eq.$($mealEntry.id)&select=*" $tokenA
+Add-Check "meal_comment_visible_A" (@($commentsForA).Count -eq 1) $mealComment.id
+Invoke-SupaJson "Delete" "/rest/v1/meal_comments?id=eq.$($mealComment.id)" $tokenB | Out-Null
+Add-Check "meal_comment_delete_B" $true $mealComment.id
+
 $signed = Invoke-RestMethod `
   -Uri "${SupabaseUrl}/storage/v1/object/sign/meals/$photoPath" `
   -Method Post `

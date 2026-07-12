@@ -36,6 +36,7 @@ $tables = @(
   "journals",
   "anniversaries",
   "meal_entries",
+  "meal_comments",
   "meal_plans"
 )
 

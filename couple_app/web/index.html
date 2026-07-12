@@ -34,8 +34,36 @@
 
   <title>我们俩</title>
   <link rel="manifest" href="manifest.json">
+  <style>
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background: #fff7fa;
+    }
+
+    #brand-bootstrap {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      display: grid;
+      place-items: center;
+      background: #fff7fa;
+      transition: opacity 240ms ease;
+    }
+
+    #brand-bootstrap img {
+      width: 92px;
+      height: 92px;
+      border-radius: 22px;
+      object-fit: cover;
+      box-shadow: 0 12px 28px rgba(241, 122, 156, 0.12);
+    }
+  </style>
 </head>
 <body>
+  <div id="brand-bootstrap" aria-hidden="true">
+    <img src="icons/Icon-192.png" alt="">
+  </div>
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader
@@ -46,6 +74,17 @@
   -->
   <script src="flutter_bootstrap.js" async></script>
   <script>
+    const flutterViewObserver = new MutationObserver(function () {
+      if (!document.querySelector('flutter-view')) return;
+      const bootstrap = document.getElementById('brand-bootstrap');
+      if (bootstrap) {
+        bootstrap.style.opacity = '0';
+        window.setTimeout(function () { bootstrap.remove(); }, 260);
+      }
+      flutterViewObserver.disconnect();
+    });
+    flutterViewObserver.observe(document.body, { childList: true, subtree: true });
+
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
         navigator.serviceWorker.register('pwa_service_worker.js');

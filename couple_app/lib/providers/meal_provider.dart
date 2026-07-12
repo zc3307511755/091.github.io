@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/meal_entry.dart';
+import '../models/meal_comment.dart';
 import '../models/meal_plan.dart';
 import '../services/meal_service.dart';
 import '../services/supabase_service.dart';
@@ -11,18 +12,23 @@ class MealProvider extends ChangeNotifier {
 
   List<MealEntry> _entries = [];
   List<MealPlan> _plans = [];
+  Map<String, List<MealComment>> _commentsByEntry = {};
+  final Set<String> _sendingCommentEntryIds = {};
   DateTime _selectedDate = DateTime.now();
   RealtimeChannel? _entryChannel;
   RealtimeChannel? _planChannel;
+  RealtimeChannel? _commentChannel;
   String? _watchedCoupleId;
   bool _isLoading = false;
   String? _error;
+  String? _commentError;
 
   List<MealEntry> get entries => _entries;
   List<MealPlan> get plans => _plans;
   DateTime get selectedDate => _selectedDate;
   bool get isLoading => _isLoading;
   String? get error => _error;
+  String? get commentError => _commentError;
 
   Future<void> watchMeals(String coupleId) async {
     if (_watchedCoupleId == coupleId) {
@@ -40,13 +46,19 @@ class MealProvider extends ChangeNotifier {
       coupleId,
       () => loadForDate(coupleId, _selectedDate),
     );
+    _commentChannel = _service.subscribeComments(
+      coupleId,
+      refreshComments,
+    );
   }
 
   Future<void> stopWatching() async {
     final entryChannel = _entryChannel;
     final planChannel = _planChannel;
+    final commentChannel = _commentChannel;
     _entryChannel = null;
     _planChannel = null;
+    _commentChannel = null;
     _watchedCoupleId = null;
 
     if (entryChannel != null) {
@@ -54,6 +66,9 @@ class MealProvider extends ChangeNotifier {
     }
     if (planChannel != null) {
       await SupabaseService.client.removeChannel(planChannel);
+    }
+    if (commentChannel != null) {
+      await SupabaseService.client.removeChannel(commentChannel);
     }
   }
 
@@ -73,6 +88,7 @@ class MealProvider extends ChangeNotifier {
         coupleId: coupleId,
         date: _selectedDate,
       );
+      await _loadCommentsForCurrentEntries();
     });
   }
 
@@ -99,6 +115,7 @@ class MealProvider extends ChangeNotifier {
         coupleId: coupleId,
         date: _selectedDate,
       );
+      await _loadCommentsForCurrentEntries();
     });
   }
 
@@ -114,7 +131,67 @@ class MealProvider extends ChangeNotifier {
         coupleId: coupleId,
         date: _selectedDate,
       );
+      await _loadCommentsForCurrentEntries();
     });
+  }
+
+  List<MealComment> commentsForEntry(String mealEntryId) {
+    return _commentsByEntry[mealEntryId] ?? const [];
+  }
+
+  bool isSendingComment(String mealEntryId) {
+    return _sendingCommentEntryIds.contains(mealEntryId);
+  }
+
+  Future<bool> addComment({
+    required MealEntry entry,
+    required String userId,
+    required String content,
+  }) async {
+    final trimmed = content.trim();
+    if (trimmed.isEmpty || trimmed.length > 300) {
+      return false;
+    }
+
+    _sendingCommentEntryIds.add(entry.id);
+    _commentError = null;
+    notifyListeners();
+
+    try {
+      await _service.addComment(
+        mealEntryId: entry.id,
+        coupleId: entry.coupleId,
+        authorId: userId,
+        content: trimmed,
+      );
+      await _loadCommentsForCurrentEntries();
+      return true;
+    } catch (error) {
+      _commentError = _friendlyCommentError(error);
+      return false;
+    } finally {
+      _sendingCommentEntryIds.remove(entry.id);
+      notifyListeners();
+    }
+  }
+
+  Future<void> deleteComment(MealComment comment) async {
+    _commentError = null;
+    notifyListeners();
+
+    try {
+      await _service.deleteComment(comment.id);
+      await _loadCommentsForCurrentEntries();
+    } catch (error) {
+      _commentError = _friendlyCommentError(error);
+    } finally {
+      notifyListeners();
+    }
+  }
+
+  Future<void> refreshComments() async {
+    await _loadCommentsForCurrentEntries();
+    notifyListeners();
   }
 
   Future<void> addPlan({
@@ -174,8 +251,39 @@ class MealProvider extends ChangeNotifier {
   void clear() {
     _entries = [];
     _plans = [];
+    _commentsByEntry = {};
+    _sendingCommentEntryIds.clear();
     _error = null;
+    _commentError = null;
     notifyListeners();
+  }
+
+  Future<void> _loadCommentsForCurrentEntries() async {
+    try {
+      final comments = await _service.loadComments(
+        _entries.map((entry) => entry.id).toList(),
+      );
+      _commentsByEntry = {
+        for (final entry in _entries)
+          entry.id: comments
+              .where((comment) => comment.mealEntryId == entry.id)
+              .toList(),
+      };
+      _commentError = null;
+    } catch (error) {
+      _commentsByEntry = {};
+      _commentError = _friendlyCommentError(error);
+    }
+  }
+
+  String _friendlyCommentError(Object error) {
+    final message = error.toString();
+    if (message.contains('meal_comments') ||
+        message.contains('PGRST205') ||
+        message.contains('schema cache')) {
+      return '评论功能需要先更新数据库';
+    }
+    return '评论加载失败，请稍后重试';
   }
 
   Future<void> _run(Future<void> Function() action) async {
@@ -197,11 +305,15 @@ class MealProvider extends ChangeNotifier {
   void dispose() {
     final entryChannel = _entryChannel;
     final planChannel = _planChannel;
+    final commentChannel = _commentChannel;
     if (entryChannel != null) {
       SupabaseService.client.removeChannel(entryChannel);
     }
     if (planChannel != null) {
       SupabaseService.client.removeChannel(planChannel);
+    }
+    if (commentChannel != null) {
+      SupabaseService.client.removeChannel(commentChannel);
     }
     super.dispose();
   }

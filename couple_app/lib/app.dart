@@ -13,6 +13,7 @@ import 'providers/todo_provider.dart';
 import 'screens/auth/auth_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/pairing_screen.dart';
+import 'screens/startup_screen.dart';
 import 'theme/app_theme.dart';
 
 class CoupleApp extends StatelessWidget {
@@ -24,8 +25,12 @@ class CoupleApp extends StatelessWidget {
       title: '我们俩',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
-      home:
-          SupabaseConfig.isConfigured ? const AppGate() : const ConfigScreen(),
+      home: StartupScreen(
+        waitForAuthentication: SupabaseConfig.isConfigured,
+        destination: SupabaseConfig.isConfigured
+            ? const AppGate()
+            : const ConfigScreen(),
+      ),
     );
   }
 }

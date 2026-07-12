@@ -22,6 +22,7 @@ Read this file before making changes.
   - `PUB_CACHE`: `C:\src\pub-cache`
   - `GRADLE_USER_HOME`: `C:\src\gradle-home`
 - Sync source to the ASCII copy before validation. Exclude generated folders such as `.dart_tool`, `build`, `.gradle`, `.kotlin`, `Pods`, and `ephemeral`.
+- If syncing and validating within one PowerShell command, explicitly run `Set-Location C:\src\couple_app_build` before invoking Flutter. Setting the destination variable or copying files does not change the process working directory.
 - Run:
   - `flutter analyze`
   - `flutter test`
@@ -48,6 +49,7 @@ Read this file before making changes.
 - For split APKs, also set `latest_base_build_number` to the pubspec build suffix, such as `5`, so new clients do not repeatedly prompt after installing non-arm64 APKs.
 - Keep the Android signing key stable. Current release builds intentionally use the debug signing config, matching earlier debug APK installs.
 - Android release APKs must be built with Supabase dart defines. Use `scripts/build_android_release.ps1`; a plain `flutter build apk` will produce an APK that cannot connect to Supabase.
+- Run `aapt` and `apksigner` against APKs under the ASCII build copy. Android build tools can fail to open otherwise valid APKs through the Unicode workspace path.
 
 ## Supabase Schema Lessons
 
@@ -63,6 +65,7 @@ Read this file before making changes.
   - `coupon_requests` table
   - `respond_coupon_request` RPC
 - If those are missing, request coupons and expiry features will not work. The client has fallback logic so basic long-lived coupon issue/use can still work on the old schema.
+- Meal photo comments require the `meal_comments` table, RLS policies, indexes, and Realtime publication from `supabase_schema.sql`. The focused migration is `couple_app/docs/meal_comments_migration.sql`; the client keeps existing meal photos usable when this table is missing.
 - Use REST checks to confirm schema before blaming UI code:
   - `coupons?select=id,expires_at,source_request_id&limit=1`
   - `coupon_requests?select=id,status&limit=1`

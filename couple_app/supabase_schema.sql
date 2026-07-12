@@ -175,6 +175,17 @@ create table if not exists public.meal_entries (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.meal_comments (
+  id uuid primary key default gen_random_uuid(),
+  meal_entry_id uuid not null references public.meal_entries(id) on delete cascade,
+  couple_id uuid not null references public.couples(id) on delete cascade,
+  author_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  content text not null check (
+    length(trim(content)) > 0 and length(trim(content)) <= 300
+  ),
+  created_at timestamptz not null default now()
+);
+
 create table if not exists public.meal_plans (
   id uuid primary key default gen_random_uuid(),
   couple_id uuid not null references public.couples(id) on delete cascade,
@@ -226,6 +237,10 @@ create index if not exists anniversaries_couple_date_idx
   on public.anniversaries(couple_id, event_date);
 create index if not exists meal_entries_couple_date_idx
   on public.meal_entries(couple_id, meal_date desc, meal_type);
+create index if not exists meal_comments_entry_created_idx
+  on public.meal_comments(meal_entry_id, created_at);
+create index if not exists meal_comments_couple_created_idx
+  on public.meal_comments(couple_id, created_at desc);
 create index if not exists meal_plans_couple_date_idx
   on public.meal_plans(couple_id, meal_date desc, meal_type);
 
@@ -790,6 +805,7 @@ alter table public.coupon_requests enable row level security;
 alter table public.journals enable row level security;
 alter table public.anniversaries enable row level security;
 alter table public.meal_entries enable row level security;
+alter table public.meal_comments enable row level security;
 alter table public.meal_plans enable row level security;
 
 drop policy if exists "profiles_select_visible" on public.profiles;
@@ -1008,6 +1024,36 @@ using (
   and author_id = auth.uid()
 );
 
+drop policy if exists "meal_comments_select_couple" on public.meal_comments;
+create policy "meal_comments_select_couple"
+on public.meal_comments for select
+to authenticated
+using (public.is_couple_member(couple_id));
+
+drop policy if exists "meal_comments_insert_author" on public.meal_comments;
+create policy "meal_comments_insert_author"
+on public.meal_comments for insert
+to authenticated
+with check (
+  public.is_couple_member(couple_id)
+  and author_id = auth.uid()
+  and exists (
+    select 1
+    from public.meal_entries entry
+    where entry.id = meal_comments.meal_entry_id
+      and entry.couple_id = meal_comments.couple_id
+  )
+);
+
+drop policy if exists "meal_comments_delete_author" on public.meal_comments;
+create policy "meal_comments_delete_author"
+on public.meal_comments for delete
+to authenticated
+using (
+  public.is_couple_member(couple_id)
+  and author_id = auth.uid()
+);
+
 drop policy if exists "meal_plans_select_couple" on public.meal_plans;
 create policy "meal_plans_select_couple"
 on public.meal_plans for select
@@ -1132,6 +1178,7 @@ alter table public.coupon_requests replica identity full;
 alter table public.journals replica identity full;
 alter table public.anniversaries replica identity full;
 alter table public.meal_entries replica identity full;
+alter table public.meal_comments replica identity full;
 alter table public.meal_plans replica identity full;
 
 do $$
@@ -1179,6 +1226,13 @@ end $$;
 do $$
 begin
   alter publication supabase_realtime add table public.meal_entries;
+exception
+  when duplicate_object or undefined_object then null;
+end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.meal_comments;
 exception
   when duplicate_object or undefined_object then null;
 end $$;

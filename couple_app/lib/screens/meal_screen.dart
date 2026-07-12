@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../models/meal_entry.dart';
+import '../models/meal_comment.dart';
 import '../models/meal_plan.dart';
 import '../providers/auth_provider.dart';
 import '../providers/couple_provider.dart';
@@ -278,9 +279,8 @@ class _MealPhotosTab extends StatelessWidget {
     }
 
     final bytes = await file.readAsBytes();
-    final extension = file.name.contains('.')
-        ? file.name.split('.').last
-        : 'jpg';
+    final extension =
+        file.name.contains('.') ? file.name.split('.').last : 'jpg';
 
     if (context.mounted) {
       await context.read<MealProvider>().addEntry(
@@ -500,6 +500,253 @@ class _MealPhotoCard extends StatelessWidget {
                     icon: const Icon(Icons.delete_outline),
                   ),
               ],
+            ),
+          _MealComments(entry: entry),
+        ],
+      ),
+    );
+  }
+}
+
+class _MealComments extends StatefulWidget {
+  const _MealComments({required this.entry});
+
+  final MealEntry entry;
+
+  @override
+  State<_MealComments> createState() => _MealCommentsState();
+}
+
+class _MealCommentsState extends State<_MealComments> {
+  final TextEditingController _controller = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
+  bool _showAll = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<MealProvider>();
+    final currentUserId = context.watch<AuthProvider>().user?.id;
+    final comments = provider.commentsForEntry(widget.entry.id);
+    final visibleComments = !_showAll && comments.length > 3
+        ? comments.sublist(comments.length - 3)
+        : comments;
+    final isSending = provider.isSendingComment(widget.entry.id);
+
+    return Container(
+      padding: const EdgeInsets.only(top: 10),
+      decoration: BoxDecoration(
+        border: Border(
+          top: BorderSide(color: Theme.of(context).dividerColor),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.chat_bubble_outline,
+                size: 17,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                comments.isEmpty ? '评论' : '评论 ${comments.length}',
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
+              const Spacer(),
+              if (comments.length > 3)
+                TextButton(
+                  onPressed: () => setState(() => _showAll = !_showAll),
+                  child: Text(_showAll ? '收起' : '查看全部'),
+                ),
+            ],
+          ),
+          if (comments.isEmpty && provider.commentError == null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                '还没有评论，说点什么吧',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+            )
+          else
+            ...visibleComments.map(
+              (comment) => _MealCommentRow(
+                comment: comment,
+                isMine: comment.authorId == currentUserId,
+                onDelete: () => provider.deleteComment(comment),
+              ),
+            ),
+          if (provider.commentError != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      provider.commentError!,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: '重试加载评论',
+                    onPressed: provider.refreshComments,
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(Icons.refresh, size: 18),
+                  ),
+                ],
+              ),
+            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _controller,
+                  focusNode: _focusNode,
+                  enabled: !isSending,
+                  maxLength: 300,
+                  minLines: 1,
+                  maxLines: 3,
+                  textInputAction: TextInputAction.send,
+                  decoration: const InputDecoration(
+                    hintText: '写下评论...',
+                    counterText: '',
+                    isDense: true,
+                    border: OutlineInputBorder(),
+                  ),
+                  onSubmitted: (_) => _submitComment(),
+                ),
+              ),
+              const SizedBox(width: 6),
+              IconButton.filled(
+                tooltip: '发送评论',
+                onPressed: isSending ? null : _submitComment,
+                icon: isSending
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.send_rounded, size: 19),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _submitComment() async {
+    final userId = context.read<AuthProvider>().user?.id;
+    final content = _controller.text.trim();
+    if (userId == null || content.isEmpty) {
+      return;
+    }
+
+    final provider = context.read<MealProvider>();
+    final sent = await provider.addComment(
+      entry: widget.entry,
+      userId: userId,
+      content: content,
+    );
+    if (!mounted) {
+      return;
+    }
+
+    if (sent) {
+      _controller.clear();
+      _focusNode.unfocus();
+      setState(() => _showAll = true);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(provider.commentError ?? '评论发送失败')),
+      );
+    }
+  }
+}
+
+class _MealCommentRow extends StatelessWidget {
+  const _MealCommentRow({
+    required this.comment,
+    required this.isMine,
+    required this.onDelete,
+  });
+
+  final MealComment comment;
+  final bool isMine;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final nickname = isMine
+        ? '我'
+        : comment.authorNickname?.trim().isNotEmpty == true
+            ? comment.authorNickname!.trim()
+            : '对方';
+    final avatarText = String.fromCharCode(nickname.runes.first);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 9),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            radius: 13,
+            backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+            child: Text(
+              avatarText,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      nickname,
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      DateFormat('HH:mm').format(comment.createdAt),
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(comment.content),
+              ],
+            ),
+          ),
+          if (isMine)
+            IconButton(
+              tooltip: '删除评论',
+              onPressed: onDelete,
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.delete_outline, size: 18),
             ),
         ],
       ),
